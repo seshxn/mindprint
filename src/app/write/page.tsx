@@ -8,7 +8,6 @@ import Link from 'next/link';
 const WritePage = () => {
   const handleFinishSession = () => {
     // TODO: Implement session saving logic
-    console.log('Session finished');
     // For now, maybe redirect to home or show a summary?
     // router.push('/');
   };
