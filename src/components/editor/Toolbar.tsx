@@ -1,7 +1,7 @@
 import React from 'react';
 import { Editor } from '@tiptap/react';
 import { Bold, Italic } from 'lucide-react';
-import { cn } from '@/lib/utils'; // Assuming this exists, if not I'll define a simple one or just use template literals if utils missing. Tiptap usually needs some toggling classes.
+import { cn } from '@/lib/utils';
 
 interface ToolbarProps {
   editor: Editor | null;
