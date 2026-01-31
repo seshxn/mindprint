@@ -2,7 +2,7 @@
 
 import { db } from '@/db';
 import { telemetryEvents } from '@/db/schema';
-import { TelemetryEvent } from '@/hooks/useMindprintTelemetry';
+import { TelemetryEvent } from '@/types/telemetry';
 
 export const ingestTelemetry = async (events: TelemetryEvent[]) => {
   if (events.length === 0) return;

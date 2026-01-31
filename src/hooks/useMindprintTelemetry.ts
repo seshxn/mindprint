@@ -1,8 +1,5 @@
 import { useEffect, useRef } from 'react';
-
-export type TelemetryEvent = 
-  | { type: 'keystroke'; timestamp: number; key: string }
-  | { type: 'paste'; timestamp: number; charCount: number; source: string };
+import { TelemetryEvent } from '@/types/telemetry';
 
 interface UseMindprintTelemetryOptions {
   batchInterval?: number; // in ms, default 5000
@@ -25,8 +22,14 @@ export const useMindprintTelemetry = ({
         const batch = [...eventsRef.current];
         eventsRef.current = []; // Clear immediately
         
-        console.log('[Mindprint Telemetry] Flushing batch:', batch.length);
-        await ingestTelemetry(batch);
+        try {
+          console.log('[Mindprint Telemetry] Flushing batch:', batch.length);
+          await ingestTelemetry(batch);
+        } catch (error) {
+          console.error('[Mindprint Telemetry] Failed to flush events, re-queueing.', error);
+          // If ingestion fails, prepend the failed batch to be retried.
+          eventsRef.current.unshift(...batch);
+        }
       }
     };
 

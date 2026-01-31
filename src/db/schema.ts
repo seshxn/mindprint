@@ -1,8 +1,5 @@
 import { pgTable, text, serial, timestamp, jsonb } from 'drizzle-orm/pg-core';
-
-type TelemetryEvent = 
-  | { type: 'keystroke'; timestamp: number; key: string }
-  | { type: 'paste'; timestamp: number; charCount: number; source: string };
+import { TelemetryEvent } from '@/types/telemetry';
 
 export const telemetryEvents = pgTable('telemetry_events', {
   id: serial('id').primaryKey(),
