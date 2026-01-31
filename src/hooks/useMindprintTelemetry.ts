@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 
 type TelemetryEvent = 
   | { type: 'keystroke'; timestamp: number; key: string }
@@ -36,16 +36,16 @@ export const useMindprintTelemetry = ({
   }, [batchInterval, enabled]);
 
   // Tiptap passes native DOM events
-  const trackKeystroke = (e: KeyboardEvent) => {
+  const trackKeystroke = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
     eventsRef.current.push({
       type: 'keystroke',
       timestamp: Date.now(),
       key: e.key,
     });
-  };
+  }, [enabled]);
 
-  const trackPaste = (e: ClipboardEvent) => {
+  const trackPaste = useCallback((e: ClipboardEvent) => {
     if (!enabled) return;
     const text = e.clipboardData?.getData('text') || '';
     eventsRef.current.push({
@@ -54,7 +54,7 @@ export const useMindprintTelemetry = ({
       charCount: text.length,
       source: 'clipboard',
     });
-  };
+  }, [enabled]);
 
   return {
     trackKeystroke,
