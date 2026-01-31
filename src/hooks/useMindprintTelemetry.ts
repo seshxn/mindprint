@@ -19,9 +19,11 @@ export const useMindprintTelemetry = ({
     if (!enabled) return;
 
     const flushEvents = () => {
-      if (eventsRef.current.length > 0) {
-        console.log('[Mindprint Telemetry] Batched Events:', eventsRef.current);
-        eventsRef.current = [];
+      // Atomically get and clear events to prevent race conditions.
+      const eventsToFlush = eventsRef.current.splice(0);
+      if (eventsToFlush.length > 0) {
+        // TODO: Replace with a call to a real telemetry service
+        console.log('[Mindprint Telemetry] Batched Events:', eventsToFlush);
       }
     };
 
