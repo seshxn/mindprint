@@ -1,12 +1,9 @@
-export type KeystrokeAction = 'char' | 'delete' | 'nav' | 'other';
+import { TelemetryEvent, KeystrokeAction } from '@/types/telemetry';
 
-export type TelemetryEvent =
-    | { type: 'keystroke'; timestamp: number; action: KeystrokeAction }
-    | { type: 'paste'; timestamp: number; length: number };
+export type { TelemetryEvent, KeystrokeAction };
 
 export interface SessionTelemetry {
     events: TelemetryEvent[];
-    // We can track other aggregates here if needed
 }
 
 export type ValidationStatus = 'VERIFIED_HUMAN' | 'SUSPICIOUS' | 'LOW_EFFORT' | 'INSUFFICIENT_DATA';
@@ -24,19 +21,22 @@ export type ValidationResult = {
 export class TelemetryTracker {
     private events: TelemetryEvent[] = [];
 
-    public recordKeystroke(action: KeystrokeAction) {
+    public recordKeystroke(action: KeystrokeAction, key: string) {
         this.events.push({
             type: 'keystroke',
             timestamp: performance.now(),
-            action
+            action,
+            key
         });
     }
 
-    public recordPaste(length: number) {
+    public recordPaste(length: number, source: string = 'clipboard') {
         this.events.push({
             type: 'paste',
             timestamp: performance.now(),
-            length
+            length,
+            charCount: length,
+            source
         });
     }
 
@@ -48,6 +48,7 @@ export class TelemetryTracker {
         this.events = [];
     }
 }
+
 
 export const validateSession = (
     events: TelemetryEvent[],
