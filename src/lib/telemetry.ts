@@ -149,7 +149,7 @@ export const validateSession = (
     }
 
     const mean = typingIntervals.reduce((a, b) => a + b, 0) / typingIntervals.length;
-    const variance = typingIntervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / typingIntervals.length;
+    const variance = typingIntervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (typingIntervals.length - 1);
     const stdDev = Math.sqrt(variance);
 
     // Coefficient of Variation (CV) = s / mu
