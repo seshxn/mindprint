@@ -4,7 +4,7 @@ import { GoogleGenAI } from '@google/genai';
 const apiKey = process.env.GOOGLE_API_KEY;
 
 if (!apiKey) {
-  console.warn('GOOGLE_API_KEY is not defined in the environment variables. The AI features will not work.');
+  throw new Error('GOOGLE_API_KEY is not defined in the environment variables. The AI features will not work.');
 }
 
 export const gemini = new GoogleGenAI({ apiKey });

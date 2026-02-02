@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { gemini } from '../src/lib/gemini';
 import { FORENSIC_LINGUIST_PROMPT } from '../src/lib/prompts';
+import { ANALYSIS_MODEL_ID } from '../src/lib/constants';
 
 interface LogEntry {
   key: string;
@@ -12,7 +13,7 @@ const runVerification = async () => {
   console.log('Running Forensic Linguist Verification...');
 
   // 1. Simulating a mock log with a Pause
-  const pauseLog = [
+  const pauseLog: LogEntry[] = [
     { key: 'H', timestamp: 1000 },
     { key: 'e', timestamp: 1100 },
     { key: 'l', timestamp: 1200 },
@@ -28,7 +29,7 @@ const runVerification = async () => {
   ];
 
   // 2. Simulating a mock log with Bulk Paste
-  const pasteLog = [
+  const pasteLog: LogEntry[] = [
     { key: 'T', timestamp: 1000 },
     { key: 'h', timestamp: 1100 },
     { key: 'i', timestamp: 1200 },
@@ -40,7 +41,7 @@ const runVerification = async () => {
     const analyzeLog = async (log: LogEntry[], label: string) => {
       console.log(`\n--- Analyzing ${label} ---`);
       const response = await gemini.models.generateContent({
-        model: 'gemini-3-flash-preview',
+        model: ANALYSIS_MODEL_ID,
         contents: `Analyze:\n${JSON.stringify(log)}`,
         config: {
           systemInstruction: FORENSIC_LINGUIST_PROMPT,
