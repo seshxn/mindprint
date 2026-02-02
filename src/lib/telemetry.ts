@@ -46,7 +46,6 @@ export class TelemetryTracker {
             type: 'paste',
             timestamp: performance.now(),
             length,
-            charCount: length,
             source
         });
         this.enforceLimit();
@@ -56,7 +55,7 @@ export class TelemetryTracker {
         if (this.events.length > MAX_EVENTS_HISTORY) {
             // Keep the last N events
             const removeCount = this.events.length - MAX_EVENTS_HISTORY;
-            this.events.splice(0, removeCount);
+            this.events = this.events.slice(removeCount);
         }
     }
 
