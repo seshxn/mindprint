@@ -1,12 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { TelemetryEvent } from '@/types/telemetry';
+import { ingestTelemetry } from '@/app/actions/telemetry';
 
 interface UseMindprintTelemetryOptions {
   batchInterval?: number; // in ms, default 5000
   enabled?: boolean;
 }
-
-import { ingestTelemetry } from '@/app/actions/telemetry';
 
 export const useMindprintTelemetry = ({
   batchInterval = 5000,
@@ -42,16 +41,16 @@ export const useMindprintTelemetry = ({
   }, [batchInterval, enabled]);
 
   // Tiptap passes native DOM events
-  const trackKeystroke = (e: KeyboardEvent) => {
+  const trackKeystroke = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
     eventsRef.current.push({
       type: 'keystroke',
       timestamp: Date.now(),
       key: e.key,
     });
-  };
+  }, [enabled]);
 
-  const trackPaste = (e: ClipboardEvent) => {
+  const trackPaste = useCallback((e: ClipboardEvent) => {
     if (!enabled) return;
     const text = e.clipboardData?.getData('text') || '';
     eventsRef.current.push({
@@ -60,7 +59,7 @@ export const useMindprintTelemetry = ({
       charCount: text.length,
       source: 'clipboard',
     });
-  };
+  }, [enabled]);
 
   return {
     trackKeystroke,

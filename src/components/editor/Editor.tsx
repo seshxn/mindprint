@@ -4,8 +4,11 @@ import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { Toolbar } from './Toolbar';
+import { useMindprintTelemetry } from '@/hooks/useMindprintTelemetry';
 
 const Editor = () => {
+  const { trackKeystroke, trackPaste } = useMindprintTelemetry();
+
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -18,6 +21,14 @@ const Editor = () => {
     editorProps: {
       attributes: {
         class: 'prose prose-stone dark:prose-invert max-w-none focus:outline-none min-h-[50vh] text-lg leading-relaxed',
+      },
+      handleKeyDown: (_, event) => {
+        trackKeystroke(event);
+        return false; // Let the event bubble/perform default action
+      },
+      handlePaste: (_, event) => {
+        trackPaste(event);
+        return false; // Let the event bubble/perform default action
       },
     },
     immediatelyRender: false, 
