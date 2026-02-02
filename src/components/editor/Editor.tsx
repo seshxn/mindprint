@@ -58,7 +58,7 @@ const Editor = () => {
       <div className="flex justify-between items-end mb-4">
         <Toolbar editor={editor} />
         <div className={`text-xs font-mono px-2 py-1 rounded border ${getStatusColor(validationResult.status)}`}>
-          PoH: {validationResult.status?.replaceAll('_', ' ')}
+          PoH: {validationResult.status.replaceAll('_', ' ')}
           {validationResult.status !== 'VERIFIED_HUMAN' && validationResult.reason && (
             <span className="block opacity-75 text-[10px] whitespace-pre-wrap max-w-[200px]">
               {validationResult.reason}

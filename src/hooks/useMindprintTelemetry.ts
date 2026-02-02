@@ -25,16 +25,12 @@ export const useMindprintTelemetry = ({
     const flushEvents = async () => {
       const events = trackerRef.current.getEvents();
       if (events.length > 0) {
-        trackerRef.current.clear();
-
         try {
           await ingestTelemetry(events);
+          trackerRef.current.clear();
         } catch (error) {
           console.error('[Mindprint Telemetry] Failed to flush events.', error);
-          // Note: Re-queueing logic is complex with the class abstraction without exposing internal methods.
-          // For now, we accept loss on failure to prevent memory leaks/complexity, 
-          // or we could add a `restoreEvents` method to tracker if critical.
-          // Given the "Cap events" requirement, losing a batch is preferable to infinite retry loops filling memory.
+          // Events are not cleared on failure and will be retried in the next flush.
         }
       }
     };
