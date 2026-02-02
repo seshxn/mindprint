@@ -10,7 +10,6 @@ export type TelemetryEvent =
   | {
     type: 'paste';
     timestamp: number;
-    length: number; // For compatibility with my code
-    charCount: number; // For compatibility with main
-    source: string
+    length: number;
+    source: string;
   };
