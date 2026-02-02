@@ -54,8 +54,7 @@ export class TelemetryTracker {
     private enforceLimit() {
         if (this.events.length > MAX_EVENTS_HISTORY) {
             // Keep the last N events
-            const removeCount = this.events.length - MAX_EVENTS_HISTORY;
-            this.events = this.events.slice(removeCount);
+            this.events.shift();
         }
     }
 
