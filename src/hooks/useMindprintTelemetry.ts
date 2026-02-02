@@ -1,47 +1,37 @@
-import { useEffect, useRef, useCallback } from 'react';
-
-type TelemetryEvent = 
-  | { type: 'keystroke'; timestamp: number; key: string }
-  | { type: 'paste'; timestamp: number; charCount: number; source: string };
+import { useState, useRef, useCallback } from 'react';
+import {
+  TelemetryEvent,
+  validateSession,
+  ValidationResult,
+  KeystrokeAction
+} from '@/lib/telemetry';
 
 interface UseMindprintTelemetryOptions {
-  batchInterval?: number; // in ms, default 5000
   enabled?: boolean;
 }
 
 export const useMindprintTelemetry = ({
-  batchInterval = 5000,
   enabled = true,
 }: UseMindprintTelemetryOptions = {}) => {
   const eventsRef = useRef<TelemetryEvent[]>([]);
+  const [validationResult, setValidationResult] = useState<ValidationResult>({ status: 'INSUFFICIENT_DATA' });
 
-  useEffect(() => {
-    if (!enabled) return;
-
-    const flushEvents = () => {
-      // Atomically get and clear events to prevent race conditions.
-      const eventsToFlush = eventsRef.current.splice(0);
-      if (eventsToFlush.length > 0) {
-        // TODO: Replace with a call to a real telemetry service
-        console.log('[Mindprint Telemetry] Batched Events:', eventsToFlush);
-      }
-    };
-
-    const intervalId = setInterval(flushEvents, batchInterval);
-
-    return () => {
-      clearInterval(intervalId);
-      flushEvents(); // Flush remaining on unmount
-    };
-  }, [batchInterval, enabled]);
-
-  // Tiptap passes native DOM events
   const trackKeystroke = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
+
+    let action: KeystrokeAction = 'other';
+    if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      action = 'char';
+    } else if (e.key === 'Backspace' || e.key === 'Delete') {
+      action = 'delete';
+    } else if (e.key.startsWith('Arrow') || e.key === 'Home' || e.key === 'End' || e.key === 'PageUp' || e.key === 'PageDown') {
+      action = 'nav';
+    }
+
     eventsRef.current.push({
       type: 'keystroke',
-      timestamp: Date.now(),
-      key: e.key,
+      timestamp: performance.now(),
+      action
     });
   }, [enabled]);
 
@@ -50,14 +40,26 @@ export const useMindprintTelemetry = ({
     const text = e.clipboardData?.getData('text') || '';
     eventsRef.current.push({
       type: 'paste',
-      timestamp: Date.now(),
-      charCount: text.length,
-      source: 'clipboard',
+      timestamp: performance.now(),
+      length: text.length,
     });
   }, [enabled]);
+
+  const updateValidation = useCallback((currentContentLength: number) => {
+    if (!enabled) return;
+    const result = validateSession(eventsRef.current, currentContentLength);
+    setValidationResult(result);
+  }, [enabled]);
+
+  const getEvents = useCallback(() => {
+    return [...eventsRef.current];
+  }, []);
 
   return {
     trackKeystroke,
     trackPaste,
+    updateValidation,
+    validationResult,
+    getEvents
   };
 }
