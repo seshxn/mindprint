@@ -7,4 +7,4 @@ if (!apiKey) {
   console.warn('GOOGLE_API_KEY is not defined in the environment variables. The AI features will not work.');
 }
 
-export const gemini = new GoogleGenAI({ apiKey });
+export const gemini = new GoogleGenAI({ apiKey: apiKey || 'dummy-key-for-build' });
