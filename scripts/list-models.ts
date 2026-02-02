@@ -6,8 +6,8 @@ const listModels = async () => {
     const response = await gemini.models.list();
     console.log('Available Models:');
     if (response.page) {
-        response.page.forEach((model: any) => {
-             console.log(`- ${model.name} (Supported methods: ${model.supportedGenerationMethods?.join(', ')})`);
+        response.page.forEach((model) => {
+             console.log(`- ${model.name}`);
         });
     } else {
         console.log("No models found.");

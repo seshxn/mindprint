@@ -2,7 +2,13 @@ import 'dotenv/config';
 import { gemini } from '../src/lib/gemini';
 import { FORENSIC_LINGUIST_PROMPT } from '../src/lib/prompts';
 
-async function runVerification() {
+interface LogEntry {
+  key: string;
+  timestamp: number;
+  type?: string;
+}
+
+const runVerification = async () => {
   console.log('Running Forensic Linguist Verification...');
 
   // 1. Simulating a mock log with a Pause
@@ -31,7 +37,7 @@ async function runVerification() {
   ];
 
   try {
-    const analyzeLog = async (log: any, label: string) => {
+    const analyzeLog = async (log: LogEntry[], label: string) => {
       console.log(`\n--- Analyzing ${label} ---`);
       const response = await gemini.models.generateContent({
         model: 'gemini-3-flash-preview',
