@@ -144,6 +144,7 @@ export const validateSession = (
     if (typingIntervals.length < MIN_TYPING_INTERVALS) {
         return {
             status: 'INSUFFICIENT_DATA',
+            reason: 'Not enough valid typing intervals for analysis.',
             metrics: { pasteRatio, netContentLength: currentContentLength }
         };
     }
