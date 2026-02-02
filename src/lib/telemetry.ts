@@ -18,6 +18,16 @@ export type ValidationResult = {
     };
 };
 
+// Constants
+const PASTE_RATIO_THRESHOLD = 0.8;
+const MIN_TYPED_EVENTS_FOR_ANALYSIS = 10;
+const MIN_TYPING_INTERVALS = 5;
+const MAX_VALID_INTERVAL_MS = 2000;
+const MIN_STD_DEV_MS = 15;
+const MAX_EVENTS_HISTORY = 10000;
+const LOW_CV_THRESHOLD = 0.2;
+const LOW_CV_MEAN_THRESHOLD = 150;
+
 export class TelemetryTracker {
     private events: TelemetryEvent[] = [];
 
@@ -28,6 +38,7 @@ export class TelemetryTracker {
             action,
             key
         });
+        this.enforceLimit();
     }
 
     public recordPaste(length: number, source: string = 'clipboard') {
@@ -38,6 +49,15 @@ export class TelemetryTracker {
             charCount: length,
             source
         });
+        this.enforceLimit();
+    }
+
+    private enforceLimit() {
+        if (this.events.length > MAX_EVENTS_HISTORY) {
+            // Keep the last N events
+            const removeCount = this.events.length - MAX_EVENTS_HISTORY;
+            this.events.splice(0, removeCount);
+        }
     }
 
     public getEvents(): TelemetryEvent[] {
@@ -87,7 +107,7 @@ export const validateSession = (
     // Ratio = Pasted / (Pasted + Typed)
     const pasteRatio = pastedChars / totalProduced;
 
-    if (pasteRatio > 0.8) {
+    if (pasteRatio > PASTE_RATIO_THRESHOLD) {
         // Check if deletions compensate? 
         // If I paste 1000 and type 5, ratio is high.
         // If I paste 1000 and delete 900, type 5, ratio is still high relative to *production* method.
@@ -101,7 +121,7 @@ export const validateSession = (
 
     // 3. Typing Variance (Coefficient of Variation)
     // Only analyze if we have enough keystrokes to be statistically meaningful
-    if (typedCharEvents.length < 10) {
+    if (typedCharEvents.length < MIN_TYPED_EVENTS_FOR_ANALYSIS) {
         // Not enough typing to fingerprint, but if paste ratio is low, we might loosely accept or stay insufficient.
         // Let's be conservative:
         return {
@@ -120,9 +140,9 @@ export const validateSession = (
     }
 
     // Filter valid typing intervals (exclude massive pauses > 2s which are "thinking" time)
-    const typingIntervals = intervals.filter(i => i < 2000);
+    const typingIntervals = intervals.filter(i => i < MAX_VALID_INTERVAL_MS);
 
-    if (typingIntervals.length < 5) {
+    if (typingIntervals.length < MIN_TYPING_INTERVALS) {
         return {
             status: 'INSUFFICIENT_DATA',
             metrics: { pasteRatio, netContentLength: currentContentLength }
@@ -143,7 +163,7 @@ export const validateSession = (
     // Floating point jitter might exist, but usually scripts are cleaner than humans.
     // (Optional simple check)
 
-    if (cv < 0.2 && mean < 150) {
+    if (cv < LOW_CV_THRESHOLD && mean < LOW_CV_MEAN_THRESHOLD) {
         // Very fast and very regular.
         return {
             status: 'SUSPICIOUS',
@@ -153,7 +173,7 @@ export const validateSession = (
     }
 
     // Additional Bot Check: extremely low variance absolute
-    if (stdDev < 15) {
+    if (stdDev < MIN_STD_DEV_MS) {
         return {
             status: 'SUSPICIOUS',
             reason: `Typing variance unnaturally low (SD: ${stdDev.toFixed(1)}ms)`,
