@@ -5,12 +5,10 @@ import Editor from '@/components/editor/Editor';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { analyzeSession } from '@/app/actions/analysis';
-import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { AnalysisResult } from '@/components/AnalysisResult';
 
 const WritePage = () => {
-  const router = useRouter();
   const sessionId = useMemo(() => crypto.randomUUID(), []);
   const [isFinishing, setIsFinishing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);

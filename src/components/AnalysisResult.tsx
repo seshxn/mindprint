@@ -44,6 +44,7 @@ export const AnalysisResult = ({ isOpen, onClose, analysis }: AnalysisResultProp
                             </div>
                             <button
                                 onClick={onClose}
+                                aria-label="Close analysis results"
                                 className="p-2 hover:bg-stone-200 dark:hover:bg-stone-800 rounded-full transition-colors text-stone-500 dark:text-stone-400"
                             >
                                 <X className="w-6 h-6" />

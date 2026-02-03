@@ -4,9 +4,14 @@ import { db } from '@/db';
 import { analysisResults, telemetryEvents } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent';
+
 export const analyzeSession = async (sessionId: string) => {
     if (!sessionId) {
-        throw new Error('Session ID is required');
+        return {
+            error: 'MISSING_SESSION_ID',
+            message: 'Session ID is required for analysis.'
+        };
     }
 
     // 1. Fetch telemetry events
@@ -46,7 +51,7 @@ export const analyzeSession = async (sessionId: string) => {
   `;
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
+        const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
