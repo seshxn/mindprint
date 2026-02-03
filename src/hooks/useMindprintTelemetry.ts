@@ -5,11 +5,13 @@ import { ingestTelemetry } from '@/app/actions/telemetry';
 interface UseMindprintTelemetryOptions {
   batchInterval?: number; // in ms, default 5000
   enabled?: boolean;
+  sessionId?: string;
 }
 
 export const useMindprintTelemetry = ({
   batchInterval = 5000,
   enabled = true,
+  sessionId,
 }: UseMindprintTelemetryOptions = {}) => {
   const eventsRef = useRef<TelemetryEvent[]>([]);
 
@@ -20,10 +22,10 @@ export const useMindprintTelemetry = ({
       if (eventsRef.current.length > 0) {
         const batch = [...eventsRef.current];
         eventsRef.current = []; // Clear immediately
-        
+
         try {
           console.log('[Mindprint Telemetry] Flushing batch:', batch.length);
-          await ingestTelemetry(batch);
+          await ingestTelemetry(batch, sessionId);
         } catch (error) {
           console.error('[Mindprint Telemetry] Failed to flush events, re-queueing.', error);
           // If ingestion fails, prepend the failed batch to be retried.

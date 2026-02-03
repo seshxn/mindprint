@@ -6,8 +6,12 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { Toolbar } from './Toolbar';
 import { useMindprintTelemetry } from '@/hooks/useMindprintTelemetry';
 
-const Editor = () => {
-  const { trackKeystroke, trackPaste } = useMindprintTelemetry();
+interface EditorProps {
+  sessionId: string;
+}
+
+const Editor = ({ sessionId }: EditorProps) => {
+  const { trackKeystroke, trackPaste } = useMindprintTelemetry({ sessionId });
 
   const editor = useEditor({
     extensions: [
@@ -31,7 +35,7 @@ const Editor = () => {
         return false; // Let the event bubble/perform default action
       },
     },
-    immediatelyRender: false, 
+    immediatelyRender: false,
   });
 
   return (
