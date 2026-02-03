@@ -16,7 +16,10 @@ export const analyzeSession = async (sessionId: string) => {
         .orderBy(desc(telemetryEvents.createdAt));
 
     if (eventsRecords.length === 0) {
-        return { error: 'No telemetry found for this session' };
+        return {
+            error: 'NO_TELEMETRY',
+            message: 'No telemetry data found for this session. Try writing something first!'
+        };
     }
 
     // Aggregate all events
@@ -26,7 +29,10 @@ export const analyzeSession = async (sessionId: string) => {
     // 2. Call Gemini API
     const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
     if (!apiKey) {
-        throw new Error('API Key not found');
+        return {
+            error: 'MISSING_API_KEY',
+            message: 'API key not configured. Please add GOOGLE_API_KEY to your .env file.'
+        };
     }
 
     const prompt = `
@@ -40,7 +46,7 @@ export const analyzeSession = async (sessionId: string) => {
   `;
 
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -55,7 +61,11 @@ export const analyzeSession = async (sessionId: string) => {
         if (!response.ok) {
             const errorText = await response.text();
             console.error('Gemini API Error:', response.status, errorText);
-            throw new Error(`Gemini API Error: ${response.status}`);
+            return {
+                error: 'API_ERROR',
+                message: `Gemini API request failed (${response.status}). Please check your API key and try again.`,
+                details: errorText
+            };
         }
 
         const data = await response.json();
@@ -71,6 +81,10 @@ export const analyzeSession = async (sessionId: string) => {
 
     } catch (error) {
         console.error('Analysis failed:', error);
-        return { error: 'Analysis failed' };
+        return {
+            error: 'UNEXPECTED_ERROR',
+            message: 'An unexpected error occurred during analysis. Please try again.',
+            details: error instanceof Error ? error.message : String(error)
+        };
     }
 }
