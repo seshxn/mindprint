@@ -1,7 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import {
-  KeystrokeAction
-} from '@/types/telemetry';
+import { KeystrokeAction, TelemetryEvent } from '@/types/telemetry';
 import { validateSession, ValidationResult, TelemetryTracker } from '@/lib/telemetry';
 import { ingestTelemetry } from '@/app/actions/telemetry';
 
@@ -16,7 +14,12 @@ export const useMindprintTelemetry = ({
 }: UseMindprintTelemetryOptions = {}) => {
   // Use the tracker class for internal logic (capping, etc.)
   const trackerRef = useRef<TelemetryTracker>(new TelemetryTracker());
+  const uiEventsRef = useRef<TelemetryEvent[]>([]);
   const [validationResult, setValidationResult] = useState<ValidationResult>({ status: 'INSUFFICIENT_DATA' });
+  const [isWarming, setIsWarming] = useState(false);
+
+  const MAX_UI_EVENTS = 2000;
+  const MIN_TYPED_EVENTS_FOR_WARMING = 10;
 
   // Ingestion Effect (Matches logic from main, but clears tracker instead of raw array)
   useEffect(() => {
@@ -57,18 +60,41 @@ export const useMindprintTelemetry = ({
     }
 
     trackerRef.current.recordKeystroke(action, e.key);
+    uiEventsRef.current.push({
+      type: 'keystroke',
+      timestamp: performance.now(),
+      action,
+      key: e.key
+    });
+    if (uiEventsRef.current.length > MAX_UI_EVENTS) {
+      uiEventsRef.current.shift();
+    }
   }, [enabled]);
 
   const trackPaste = useCallback((e: ClipboardEvent) => {
     if (!enabled) return;
     const text = e.clipboardData?.getData('text') || '';
     trackerRef.current.recordPaste(text.length, 'clipboard');
+    uiEventsRef.current.push({
+      type: 'paste',
+      timestamp: performance.now(),
+      length: text.length,
+      source: 'clipboard'
+    });
+    if (uiEventsRef.current.length > MAX_UI_EVENTS) {
+      uiEventsRef.current.shift();
+    }
   }, [enabled]);
 
   const updateValidation = useCallback((currentContentLength: number) => {
     if (!enabled) return;
     // validateSession logic from HEAD
-    const result = validateSession(trackerRef.current.getEvents(), currentContentLength);
+    const uiEvents = uiEventsRef.current;
+    const typedCount = uiEvents.filter(
+      (event) => event.type === 'keystroke' && event.action === 'char'
+    ).length;
+    setIsWarming(typedCount > 0 && typedCount < MIN_TYPED_EVENTS_FOR_WARMING);
+    const result = validateSession(uiEvents, currentContentLength);
     setValidationResult(result);
   }, [enabled]);
 
@@ -76,11 +102,17 @@ export const useMindprintTelemetry = ({
     return trackerRef.current.getEvents();
   }, []);
 
+  const getUiEvents = useCallback(() => {
+    return [...uiEventsRef.current];
+  }, []);
+
   return {
     trackKeystroke,
     trackPaste,
     updateValidation,
     validationResult,
-    getEvents
+    getEvents,
+    getUiEvents,
+    isWarming
   };
 }
