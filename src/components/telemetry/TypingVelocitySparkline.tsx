@@ -77,10 +77,13 @@ interface TypingVelocitySparklineProps {
    }
 
    const perSecond = bucketMs / 1000;
-   return buckets.map((count, index) => ({
-     time: start + index * bucketMs,
-     velocity: count / perSecond,
-   }));
+   return buckets.map((count, index) => {
+     const velocity = count / perSecond;
+     return {
+       time: start + index * bucketMs,
+       velocity: Number.isFinite(velocity) ? velocity : 0,
+     };
+   });
  };
 
  const mapToPoints = (
@@ -108,13 +111,6 @@ interface TypingVelocitySparklineProps {
    });
  };
 
- const buildPath = (points: VelocityPoint[]) => {
-   if (points.length === 0) {
-     return '';
-   }
-   return points.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x} ${point.y}`).join(' ');
- };
-
  const buildSmoothPath = (points: VelocityPoint[]) => {
    if (points.length === 0) {
      return '';
@@ -128,16 +124,22 @@ interface TypingVelocitySparklineProps {
 
    let path = `M${points[0].x} ${points[0].y}`;
 
-   // Use quadratic bezier curves with control points for smooth transitions
+   // Use Catmull-Rom spline for smooth curves that pass through all points
+   // For each segment, calculate control points using surrounding points
    for (let i = 0; i < points.length - 1; i++) {
-     const current = points[i];
-     const next = points[i + 1];
+     const p0 = points[Math.max(0, i - 1)];
+     const p1 = points[i];
+     const p2 = points[i + 1];
+     const p3 = points[Math.min(points.length - 1, i + 2)];
 
-     // Control point at the midpoint
-     const cpX = (current.x + next.x) / 2;
-     const cpY = (current.y + next.y) / 2;
+     // Calculate control points for cubic bezier curve
+     // This creates a smooth curve that passes through p1 and p2
+     const cp1x = p1.x + (p2.x - p0.x) / 6;
+     const cp1y = p1.y + (p2.y - p0.y) / 6;
+     const cp2x = p2.x - (p3.x - p1.x) / 6;
+     const cp2y = p2.y - (p3.y - p1.y) / 6;
 
-     path += ` Q${cpX},${cpY} ${next.x},${next.y}`;
+     path += ` C${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y}`;
    }
 
    return path;
@@ -166,23 +168,38 @@ export const TypingVelocitySparkline = ({
   const numericWidth = typeof width === 'number' ? width : DEFAULT_WIDTH;
   const svgWidth = typeof width === 'number' ? width : '100%';
   const { path, areaPath, points, maxVelocity, avgVelocity, currentVelocity, durationSeconds } = useMemo(() => {
-    const events = parseTelemetry(data);
-    const series = buildVelocitySeries(events, bucketMs);
-    const mappedPoints = mapToPoints(series, numericWidth, height);
-    const maxValue = series.length === 0 ? 0 : Math.max(...series.map((item) => item.velocity));
-    const avgValue = series.length === 0 ? 0 : series.reduce((sum, item) => sum + item.velocity, 0) / series.length;
-    const currentValue = series.length === 0 ? 0 : series[series.length - 1].velocity;
-    const duration = series.length > 1 ? (series[series.length - 1].time - series[0].time) / 1000 : 0;
+    try {
+      const events = parseTelemetry(data);
+      const series = buildVelocitySeries(events, bucketMs);
+      const mappedPoints = mapToPoints(series, numericWidth, height);
+      const maxValue = series.length === 0 ? 0 : Math.max(...series.map((item) => item.velocity));
+      const avgValue = series.length === 0 ? 0 : series.reduce((sum, item) => sum + item.velocity, 0) / series.length;
+      const currentValue = series.length === 0 ? 0 : series[series.length - 1].velocity;
+      const duration = series.length > 1 ? (series[series.length - 1].time - series[0].time) / 1000 : 0;
 
-    return {
-      path: buildSmoothPath(mappedPoints),
-      areaPath: buildAreaPath(mappedPoints, height),
-      points: mappedPoints,
-      maxVelocity: maxValue,
-      avgVelocity: avgValue,
-      currentVelocity: currentValue,
-      durationSeconds: duration,
-    };
+      // Ensure all computed values are finite
+      return {
+        path: buildSmoothPath(mappedPoints),
+        areaPath: buildAreaPath(mappedPoints, height),
+        points: mappedPoints,
+        maxVelocity: Number.isFinite(maxValue) ? maxValue : 0,
+        avgVelocity: Number.isFinite(avgValue) ? avgValue : 0,
+        currentVelocity: Number.isFinite(currentValue) ? currentValue : 0,
+        durationSeconds: Number.isFinite(duration) ? duration : 0,
+      };
+    } catch (error) {
+      console.error('[TypingVelocitySparkline] Computation error:', error);
+      // Return safe fallback values
+      return {
+        path: '',
+        areaPath: '',
+        points: [],
+        maxVelocity: 0,
+        avgVelocity: 0,
+        currentVelocity: 0,
+        durationSeconds: 0,
+      };
+    }
   }, [data, bucketMs, height, numericWidth]);
 
   const hasData = points.length > 0;

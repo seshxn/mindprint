@@ -17,9 +17,19 @@ export const useMindprintTelemetry = ({
   const uiEventsRef = useRef<TelemetryEvent[]>([]);
   const [validationResult, setValidationResult] = useState<ValidationResult>({ status: 'INSUFFICIENT_DATA' });
   const [isWarming, setIsWarming] = useState(false);
+  const lastValidationTimeRef = useRef<number>(0);
+  const validationThrottleMs = 500; // Throttle validation to run at most every 500ms
 
   const MAX_UI_EVENTS = 2000;
   const MIN_TYPED_EVENTS_FOR_WARMING = 10;
+
+  // Helper to add event to buffer with automatic trimming
+  const addToUiBuffer = useCallback((event: TelemetryEvent) => {
+    uiEventsRef.current.push(event);
+    if (uiEventsRef.current.length > MAX_UI_EVENTS) {
+      uiEventsRef.current.shift();
+    }
+  }, []);
 
   // Ingestion Effect (Matches logic from main, but clears tracker instead of raw array)
   useEffect(() => {
@@ -60,34 +70,36 @@ export const useMindprintTelemetry = ({
     }
 
     trackerRef.current.recordKeystroke(action, e.key);
-    uiEventsRef.current.push({
+    addToUiBuffer({
       type: 'keystroke',
       timestamp: performance.now(),
       action,
       key: e.key
     });
-    if (uiEventsRef.current.length > MAX_UI_EVENTS) {
-      uiEventsRef.current.shift();
-    }
-  }, [enabled]);
+  }, [enabled, addToUiBuffer]);
 
   const trackPaste = useCallback((e: ClipboardEvent) => {
     if (!enabled) return;
     const text = e.clipboardData?.getData('text') || '';
     trackerRef.current.recordPaste(text.length, 'clipboard');
-    uiEventsRef.current.push({
+    addToUiBuffer({
       type: 'paste',
       timestamp: performance.now(),
       length: text.length,
       source: 'clipboard'
     });
-    if (uiEventsRef.current.length > MAX_UI_EVENTS) {
-      uiEventsRef.current.shift();
-    }
-  }, [enabled]);
+  }, [enabled, addToUiBuffer]);
 
   const updateValidation = useCallback((currentContentLength: number) => {
     if (!enabled) return;
+
+    // Throttle validation to avoid expensive computation on every keystroke
+    const now = performance.now();
+    if (now - lastValidationTimeRef.current < validationThrottleMs) {
+      return;
+    }
+    lastValidationTimeRef.current = now;
+
     // validateSession logic from HEAD
     const uiEvents = uiEventsRef.current;
     const typedCount = uiEvents.filter(
@@ -96,7 +108,7 @@ export const useMindprintTelemetry = ({
     setIsWarming(typedCount > 0 && typedCount < MIN_TYPED_EVENTS_FOR_WARMING);
     const result = validateSession(uiEvents, currentContentLength);
     setValidationResult(result);
-  }, [enabled]);
+  }, [enabled, validationThrottleMs]);
 
   const getEvents = useCallback(() => {
     return trackerRef.current.getEvents();

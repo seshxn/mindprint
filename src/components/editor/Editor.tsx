@@ -1,12 +1,14 @@
 'use client';
 
 import { useEditor, EditorContent } from '@tiptap/react';
+import { useState, useEffect } from 'react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
 import { Toolbar } from './Toolbar';
 import { useMindprintTelemetry } from '@/hooks/useMindprintTelemetry';
 import { ValidationStatus } from '@/lib/telemetry';
+import { TelemetryEvent } from '@/types/telemetry';
 import TypingVelocitySparkline from '@/components/telemetry/TypingVelocitySparkline';
 
 const getStatusColor = (status: ValidationStatus = 'INSUFFICIENT_DATA') => {
@@ -23,6 +25,21 @@ const getStatusColor = (status: ValidationStatus = 'INSUFFICIENT_DATA') => {
 
 const Editor = () => {
   const { trackKeystroke, trackPaste, updateValidation, validationResult, getUiEvents, isWarming } = useMindprintTelemetry();
+  const [sparklineData, setSparklineData] = useState<TelemetryEvent[]>([]);
+
+  // Update sparkline data periodically instead of on every render
+  useEffect(() => {
+    // Populate initial data
+    setSparklineData(getUiEvents());
+
+    // Update every second
+    const intervalId = setInterval(() => {
+      setSparklineData(getUiEvents());
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // getUiEvents is stable (useCallback with empty deps), no need to include
 
   const editor = useEditor({
     extensions: [
@@ -85,7 +102,7 @@ const Editor = () => {
           Typing Velocity Over Time
         </div>
         <div className="p-3 sm:p-5 rounded-xl border border-stone-200/60 dark:border-stone-800/60 bg-gradient-to-br from-stone-900/95 via-stone-950/95 to-slate-900/95 shadow-[0_0_32px_rgba(56,189,248,0.18)] backdrop-blur-sm">
-          <TypingVelocitySparkline data={getUiEvents()} height={160} />
+          <TypingVelocitySparkline data={sparklineData} height={160} />
         </div>
       </div>
       <div>
