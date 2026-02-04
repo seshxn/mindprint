@@ -14,22 +14,45 @@ export const useMindprintTelemetry = ({
 }: UseMindprintTelemetryOptions = {}) => {
   // Use the tracker class for internal logic (capping, etc.)
   const trackerRef = useRef<TelemetryTracker>(new TelemetryTracker());
-  const uiEventsRef = useRef<TelemetryEvent[]>([]);
+  const MAX_UI_EVENTS = 2000;
+  const uiEventsRef = useRef<(TelemetryEvent | null)[]>(new Array(MAX_UI_EVENTS).fill(null));
+  const uiEventsHeadRef = useRef<number>(0);
+  const uiEventsTotalRef = useRef<number>(0);
+
   const [validationResult, setValidationResult] = useState<ValidationResult>({ status: 'INSUFFICIENT_DATA' });
   const [isWarming, setIsWarming] = useState(false);
   const lastValidationTimeRef = useRef<number>(0);
   const validationThrottleMs = 500; // Throttle validation to run at most every 500ms
 
-  const MAX_UI_EVENTS = 2000;
   const MIN_TYPED_EVENTS_FOR_WARMING = 10;
 
-  // Helper to add event to buffer with automatic trimming
+  // Helper to add event to buffer with O(1) circular insertion
   const addToUiBuffer = useCallback((event: TelemetryEvent) => {
-    uiEventsRef.current.push(event);
-    if (uiEventsRef.current.length > MAX_UI_EVENTS) {
-      uiEventsRef.current.shift();
+    uiEventsRef.current[uiEventsHeadRef.current] = event;
+    uiEventsHeadRef.current = (uiEventsHeadRef.current + 1) % MAX_UI_EVENTS;
+    uiEventsTotalRef.current = Math.min(uiEventsTotalRef.current + 1, MAX_UI_EVENTS);
+  }, [MAX_UI_EVENTS]);
+
+  // Helper to get events in chronological order from circular buffer
+  const getUiEventsInternal = useCallback(() => {
+    const result: TelemetryEvent[] = [];
+    const total = uiEventsTotalRef.current;
+    const size = MAX_UI_EVENTS;
+    const head = uiEventsHeadRef.current;
+
+    if (total < size) {
+      for (let i = 0; i < total; i++) {
+        const ev = uiEventsRef.current[i];
+        if (ev) result.push(ev);
+      }
+    } else {
+      for (let i = 0; i < size; i++) {
+        const ev = uiEventsRef.current[(head + i) % size];
+        if (ev) result.push(ev);
+      }
     }
-  }, []);
+    return result;
+  }, [MAX_UI_EVENTS]);
 
   // Ingestion Effect (Matches logic from main, but clears tracker instead of raw array)
   useEffect(() => {
@@ -101,22 +124,22 @@ export const useMindprintTelemetry = ({
     lastValidationTimeRef.current = now;
 
     // validateSession logic from HEAD
-    const uiEvents = uiEventsRef.current;
+    const uiEvents = getUiEventsInternal();
     const typedCount = uiEvents.filter(
       (event) => event.type === 'keystroke' && event.action === 'char'
     ).length;
     setIsWarming(typedCount > 0 && typedCount < MIN_TYPED_EVENTS_FOR_WARMING);
     const result = validateSession(uiEvents, currentContentLength);
     setValidationResult(result);
-  }, [enabled, validationThrottleMs]);
+  }, [enabled, validationThrottleMs, getUiEventsInternal]);
 
   const getEvents = useCallback(() => {
     return trackerRef.current.getEvents();
   }, []);
 
   const getUiEvents = useCallback(() => {
-    return [...uiEventsRef.current];
-  }, []);
+    return getUiEventsInternal();
+  }, [getUiEventsInternal]);
 
   return {
     trackKeystroke,
