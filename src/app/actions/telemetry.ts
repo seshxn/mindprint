@@ -15,5 +15,6 @@ export const ingestTelemetry = async (events: TelemetryEvent[]) => {
     console.log(`[Telemetry] Successfully ingested ${events.length} events.`);
   } catch (error) {
     console.error('[Telemetry] Failed to ingest events:', error);
+    throw error;
   }
 }

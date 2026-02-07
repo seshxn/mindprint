@@ -39,11 +39,11 @@ export const Toolbar = ({ editor }: ToolbarProps) => {
 
   return (
     <div className="flex items-center gap-2 p-2 mb-4 bg-white border border-slate-200 rounded-xl shadow-sm w-fit mx-auto transition-all duration-300 opacity-100 dark:bg-slate-900 dark:border-slate-700">
-      {items.map((item, index) => {
+      {items.map((item) => {
         const Icon = item.icon;
         return (
           <button
-            key={index}
+            key={item.label}
             onClick={item.action}
             disabled={!item.canExecute()}
             className={cn(

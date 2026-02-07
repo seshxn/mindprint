@@ -39,28 +39,34 @@ const sanitizeDate = (value: string) => {
 export const createCertificateRecord = async (input: CreateCertificateInput): Promise<CertificatePayload> => {
   const id = safeId();
   const issuedAtDate = sanitizeDate(input.issuedAt);
+  const normalizedSparkline = normalizeSparkline(input.sparkline);
+  const title = input.title.slice(0, 120) || 'Mindprint Human Origin Certificate';
+  const subtitle = input.subtitle.slice(0, 120) || 'Proof of Human Creation';
+  const text = input.text.slice(0, 420) || 'No transcript attached to this certificate.';
+  const score = Math.round(Math.max(0, Math.min(100, input.score)));
+  const seed = (input.seed || id).slice(0, 120);
 
   await db.insert(certificates).values({
     id,
     issuedAt: issuedAtDate,
-    title: input.title.slice(0, 120) || 'Mindprint Human Origin Certificate',
-    subtitle: input.subtitle.slice(0, 120) || 'Proof of Human Creation',
-    text: input.text.slice(0, 420) || 'No transcript attached to this certificate.',
-    score: Math.round(Math.max(0, Math.min(100, input.score))),
-    seed: (input.seed || id).slice(0, 120),
-    sparkline: normalizeSparkline(input.sparkline),
+    title,
+    subtitle,
+    text,
+    score,
+    seed,
+    sparkline: normalizedSparkline,
     validationStatus: input.validationStatus ?? null,
   });
 
   return {
     id,
-    title: input.title.slice(0, 120) || 'Mindprint Human Origin Certificate',
-    subtitle: input.subtitle.slice(0, 120) || 'Proof of Human Creation',
-    text: input.text.slice(0, 420) || 'No transcript attached to this certificate.',
-    score: Math.round(Math.max(0, Math.min(100, input.score))),
+    title,
+    subtitle,
+    text,
+    score,
     issuedAt: issuedAtDate.toISOString(),
-    sparkline: normalizeSparkline(input.sparkline),
-    seed: (input.seed || id).slice(0, 120),
+    sparkline: normalizedSparkline,
+    seed,
   };
 };
 
@@ -87,4 +93,3 @@ export const getCertificateRecord = async (id: string): Promise<CertificatePaylo
     seed: result.seed || result.id,
   };
 };
-

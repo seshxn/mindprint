@@ -35,7 +35,7 @@ interface EditorProps {
 
 const Editor = ({ onSessionChange }: EditorProps) => {
   const { trackKeystroke, trackPaste, updateValidation, validationResult, getUiEvents, isWarming } = useMindprintTelemetry();
-  const [sparklineData, setSparklineData] = useState<TelemetryEvent[]>([]);
+  const [sparklineData, setSparklineData] = useState<TelemetryEvent[]>(() => getUiEvents());
 
   const emitSessionSnapshot = useCallback(
     (text: string) => {
@@ -51,17 +51,12 @@ const Editor = ({ onSessionChange }: EditorProps) => {
 
   // Update sparkline data periodically instead of on every render
   useEffect(() => {
-    // Populate initial data
-    setSparklineData(getUiEvents());
-
-    // Update every second
     const intervalId = setInterval(() => {
       setSparklineData(getUiEvents());
     }, 1000);
 
     return () => clearInterval(intervalId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // getUiEvents is stable (useCallback with empty deps), no need to include
+  }, [getUiEvents]);
 
   const editor = useEditor({
     extensions: [

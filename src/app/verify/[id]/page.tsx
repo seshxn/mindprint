@@ -24,11 +24,20 @@ const toUrlSearchParams = (input: Record<string, string | string[] | undefined>)
   return params;
 };
 
+const safeGetCertificateRecord = async (id: string) => {
+  try {
+    return await getCertificateRecord(id);
+  } catch (error) {
+    console.error('[Verify] Failed to load certificate record from database:', error);
+    return null;
+  }
+};
+
 const VerifyPage = async ({ params, searchParams }: VerifyPageProps) => {
   const { id } = await params;
   const search = await searchParams;
   const searchAsParams = toUrlSearchParams(search);
-  const dbPayload = await getCertificateRecord(id);
+  const dbPayload = await safeGetCertificateRecord(id);
   const payload = dbPayload ?? parseCertificatePayload(searchAsParams, id);
   const ogSearch = buildCertificateSearchParams(payload);
   const ogImageUrl = dbPayload
@@ -82,8 +91,9 @@ const VerifyPage = async ({ params, searchParams }: VerifyPageProps) => {
                 Certificate Notes
               </div>
               <p className="leading-relaxed text-slate-600 dark:text-slate-300">
-                This certificate visual is generated on-demand from query data and can be independently verified by
-                re-opening this URL.
+                {dbPayload
+                  ? 'This certificate was loaded from a persisted record and can be independently verified by re-opening this URL.'
+                  : 'This certificate visual is generated on-demand from URL data and can be independently verified by re-opening this URL.'}
               </p>
             </div>
           </section>
