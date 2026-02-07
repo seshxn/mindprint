@@ -2,7 +2,7 @@ import 'server-only';
 
 import { randomUUID } from 'crypto';
 import { eq } from 'drizzle-orm';
-import { db } from '@/db';
+import { db, hasDatabaseUrl } from '@/db';
 import { certificates } from '@/db/schema';
 import { CertificatePayload } from '@/lib/certificate';
 import { ValidationStatus } from '@/lib/telemetry';
@@ -37,6 +37,10 @@ const sanitizeDate = (value: string) => {
 };
 
 export const createCertificateRecord = async (input: CreateCertificateInput): Promise<CertificatePayload> => {
+  if (!hasDatabaseUrl) {
+    throw new Error('DATABASE_URL environment variable is not set');
+  }
+
   const id = safeId();
   const issuedAtDate = sanitizeDate(input.issuedAt);
   const normalizedSparkline = normalizeSparkline(input.sparkline);
@@ -71,6 +75,10 @@ export const createCertificateRecord = async (input: CreateCertificateInput): Pr
 };
 
 export const getCertificateRecord = async (id: string): Promise<CertificatePayload | null> => {
+  if (!hasDatabaseUrl) {
+    return null;
+  }
+
   const normalizedId = id.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
   if (!normalizedId) return null;
 

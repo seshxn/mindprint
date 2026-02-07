@@ -1,11 +1,11 @@
 'use server';
 
-import { db } from '@/db';
+import { db, hasDatabaseUrl } from '@/db';
 import { telemetryEvents } from '@/db/schema';
 import { TelemetryEvent } from '@/types/telemetry';
 
 export const ingestTelemetry = async (events: TelemetryEvent[], sessionId?: string) => {
-  if (events.length === 0) return;
+  if (events.length === 0 || !hasDatabaseUrl) return;
 
   try {
     await db.insert(telemetryEvents).values({
