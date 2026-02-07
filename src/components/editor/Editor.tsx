@@ -30,11 +30,13 @@ export interface EditorSessionSnapshot {
 }
 
 interface EditorProps {
+  sessionId?: string;
   onSessionChange?: (snapshot: EditorSessionSnapshot) => void;
 }
 
-const Editor = ({ onSessionChange }: EditorProps) => {
-  const { trackKeystroke, trackPaste, updateValidation, validationResult, getUiEvents, isWarming } = useMindprintTelemetry();
+const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
+  const { trackKeystroke, trackPaste, updateValidation, validationResult, getUiEvents, isWarming } =
+    useMindprintTelemetry({ sessionId });
   const [sparklineData, setSparklineData] = useState<TelemetryEvent[]>(() => getUiEvents());
 
   const emitSessionSnapshot = useCallback(
@@ -49,7 +51,6 @@ const Editor = ({ onSessionChange }: EditorProps) => {
     [getUiEvents, onSessionChange, validationResult.status]
   );
 
-  // Update sparkline data periodically instead of on every render
   useEffect(() => {
     const intervalId = setInterval(() => {
       setSparklineData(getUiEvents());
@@ -63,13 +64,13 @@ const Editor = ({ onSessionChange }: EditorProps) => {
       StarterKit,
       Placeholder.configure({
         placeholder: 'Start writing...',
-        emptyEditorClass: 'is-editor-empty before:content-[attr(data-placeholder)] before:text-slate-400 dark:before:text-slate-500 before:float-left before:h-0 pointer-events-none',
+        emptyEditorClass:
+          'is-editor-empty before:content-[attr(data-placeholder)] before:text-slate-400 dark:before:text-slate-500 before:float-left before:h-0 pointer-events-none',
       }),
       CharacterCount.configure(),
     ],
     content: '',
     onUpdate: ({ editor }) => {
-      // Use efficient character count from extension
       updateValidation(editor.storage.characterCount.characters());
       emitSessionSnapshot(editor.getText());
     },
@@ -79,11 +80,11 @@ const Editor = ({ onSessionChange }: EditorProps) => {
       },
       handleKeyDown: (_, event) => {
         trackKeystroke(event);
-        return false; // Let the event bubble/perform default action
+        return false;
       },
       handlePaste: (_, event) => {
         trackPaste(event);
-        return false; // Let the event bubble/perform default action
+        return false;
       },
     },
     immediatelyRender: false,
@@ -133,6 +134,6 @@ const Editor = ({ onSessionChange }: EditorProps) => {
       </div>
     </div>
   );
-}
+};
 
 export default Editor;

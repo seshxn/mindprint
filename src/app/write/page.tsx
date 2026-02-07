@@ -46,7 +46,6 @@ const WritePage = () => {
     events: [],
     validationStatus: 'INSUFFICIENT_DATA',
   });
-
   const hasText = useMemo(() => sessionSnapshot.text.trim().length > 0, [sessionSnapshot.text]);
 
   const handleFinishSession = async () => {
@@ -73,7 +72,6 @@ const WritePage = () => {
       router.push(`/verify/${encodeURIComponent(id)}`);
     } catch (error) {
       console.error('Failed to create certificate record:', error);
-      // Fallback keeps flow functional if DB insert fails.
       const fallbackId = `mp-${Date.now().toString(36)}`;
       const params = new URLSearchParams();
       params.set('score', String(score));
@@ -100,7 +98,10 @@ const WritePage = () => {
       <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-8 sm:px-8">
         <header className="mb-8 flex items-center justify-between rounded-full border border-slate-200/80 bg-white/85 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.06)] backdrop-blur sm:px-6 dark:border-slate-700 dark:bg-slate-900/80 dark:shadow-[0_10px_30px_rgba(2,6,23,0.45)]">
           <div className="flex items-center gap-3">
-            <Link href="/" className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200">
+            <Link
+              href="/"
+              className="rounded-full p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            >
               <ArrowLeft className="h-5 w-5" />
             </Link>
             <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.2em] text-slate-700 dark:text-slate-200">
@@ -122,14 +123,18 @@ const WritePage = () => {
 
         <section className="rounded-[2rem] border border-slate-200 bg-white/80 p-4 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur sm:p-7 dark:border-slate-700 dark:bg-slate-900/75 dark:shadow-[0_20px_50px_rgba(2,6,23,0.45)]">
           <div className="mb-4 px-1">
-            <h1 className="text-2xl font-semibold text-slate-900 sm:text-3xl dark:text-slate-100">Create your proof of human writing</h1>
-            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">Write naturally. We capture process signals and issue a certificate when you finish.</p>
+            <h1 className="text-2xl font-semibold text-slate-900 sm:text-3xl dark:text-slate-100">
+              Create your proof of human writing
+            </h1>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              Write naturally. We capture process signals and issue a certificate when you finish.
+            </p>
           </div>
           <Editor onSessionChange={setSessionSnapshot} />
         </section>
       </main>
     </div>
   );
-}
+};
 
 export default WritePage;

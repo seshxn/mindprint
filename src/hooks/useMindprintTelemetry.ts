@@ -4,13 +4,15 @@ import { validateSession, ValidationResult, TelemetryTracker } from '@/lib/telem
 import { ingestTelemetry } from '@/app/actions/telemetry';
 
 interface UseMindprintTelemetryOptions {
-  enabled?: boolean;
   batchInterval?: number;
+  enabled?: boolean;
+  sessionId?: string;
 }
 
 export const useMindprintTelemetry = ({
-  enabled = true,
   batchInterval = 5000,
+  enabled = true,
+  sessionId,
 }: UseMindprintTelemetryOptions = {}) => {
   // Use the tracker class for internal logic (capping, etc.)
   const trackerRef = useRef<TelemetryTracker>(new TelemetryTracker());
@@ -62,11 +64,11 @@ export const useMindprintTelemetry = ({
       const events = trackerRef.current.getEvents();
       if (events.length > 0) {
         try {
-          await ingestTelemetry(events);
+          console.log('[Mindprint Telemetry] Flushing batch:', events.length);
+          await ingestTelemetry(events, sessionId);
           trackerRef.current.clear();
         } catch (error) {
           console.error('[Mindprint Telemetry] Failed to flush events.', error);
-          // Events are not cleared on failure and will be retried in the next flush.
         }
       }
     };
@@ -77,7 +79,7 @@ export const useMindprintTelemetry = ({
       clearInterval(intervalId);
       flushEvents(); // Flush remaining on unmount
     };
-  }, [batchInterval, enabled]);
+  }, [batchInterval, enabled, sessionId]);
 
   const trackKeystroke = useCallback((e: KeyboardEvent) => {
     if (!enabled) return;
