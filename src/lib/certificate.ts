@@ -131,16 +131,23 @@ const parseIssuedAt = (raw: string | null) => {
   return parsed.toISOString();
 };
 
+const generateCertificateId = () => {
+  if (typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function') {
+    return `mp-${globalThis.crypto.randomUUID().replace(/-/g, '').slice(0, 12)}`;
+  }
+  return `mp-${Math.random().toString(36).slice(2, 14)}`;
+};
+
 const safeId = (input: string) => {
   const cleaned = input.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
-  return cleaned || `mp-${Date.now().toString(36)}`;
+  return cleaned || generateCertificateId();
 };
 
 export const parseCertificatePayload = (
   params: URLSearchParams,
   forcedId?: string
 ): CertificatePayload => {
-  const id = safeId(forcedId || decodeParam(params.get('id')) || `mp-${Date.now().toString(36)}`);
+  const id = safeId(forcedId || decodeParam(params.get('id')) || generateCertificateId());
   const text = decodeParam(params.get('text')).slice(0, MAX_TEXT_LENGTH);
   const sparkFromParam = parseSparkline(params.get('spark'));
   const sparkFromEvents = buildSparklineFromTelemetry(parseEvents(params.get('events')));

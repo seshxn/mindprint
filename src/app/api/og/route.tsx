@@ -1,5 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
+import QRCode from 'qrcode';
 import {
   buildCertificateSearchParams,
   getCyberpunkPalette,
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 const WIDTH = 1200;
 const HEIGHT = 630;
-const QR_SIZE = 25;
+const QR_IMAGE_SIZE = 168;
 
 const formatIssuedAt = (iso: string) => {
   const date = new Date(iso);
@@ -22,44 +23,6 @@ const formatIssuedAt = (iso: string) => {
   ).padStart(2, '0')} ${String(date.getUTCHours()).padStart(2, '0')}:${String(
     date.getUTCMinutes()
   ).padStart(2, '0')} UTC`;
-};
-
-const hashString = (input: string) => {
-  let hash = 2166136261;
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i);
-    hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
-  }
-  return hash >>> 0;
-};
-
-const inFinder = (row: number, col: number, r0: number, c0: number) => {
-  const r = row - r0;
-  const c = col - c0;
-  if (r < 0 || c < 0 || r > 6 || c > 6) return false;
-  if (r === 0 || r === 6 || c === 0 || c === 6) return true;
-  return r >= 2 && r <= 4 && c >= 2 && c <= 4;
-};
-
-const finderZone = (row: number, col: number) =>
-  inFinder(row, col, 0, 0) || inFinder(row, col, 0, QR_SIZE - 7) || inFinder(row, col, QR_SIZE - 7, 0);
-
-const buildQrMatrix = (seed: string) => {
-  const matrix: boolean[][] = [];
-  const base = hashString(seed);
-  for (let row = 0; row < QR_SIZE; row += 1) {
-    const cells: boolean[] = [];
-    for (let col = 0; col < QR_SIZE; col += 1) {
-      if (finderZone(row, col)) {
-        cells.push(true);
-        continue;
-      }
-      const h = hashString(`${base}:${row}:${col}`);
-      cells.push(((h >> ((row + col) % 16)) & 1) === 1);
-    }
-    matrix.push(cells);
-  }
-  return matrix;
 };
 
 const toSparkBars = (values: number[]) => {
@@ -83,7 +46,14 @@ export const GET = async (request: NextRequest) => {
       : `${origin}/verify/${encodeURIComponent(payload.id)}?${verifyParams.toString()}`;
     const verifyHint = `${origin}/verify/${payload.id}`;
 
-    const matrix = buildQrMatrix(verifyUrl);
+    const qrCodeDataUrl = await QRCode.toDataURL(verifyUrl, {
+      width: QR_IMAGE_SIZE,
+      margin: 1,
+      color: {
+        dark: '#020617',
+        light: '#FFFFFF',
+      },
+    });
     const bars = toSparkBars(payload.sparkline);
     const excerpt = payload.text.length > 260 ? `${payload.text.slice(0, 257)}...` : payload.text;
     const idLine = `ID ${payload.id} | Issued ${formatIssuedAt(payload.issuedAt)}`;
@@ -216,21 +186,18 @@ export const GET = async (request: NextRequest) => {
                   padding: 10,
                 }}
               >
-                {matrix.map((row, rowIndex) => (
-                  <div key={`r-${rowIndex}`} style={{ display: 'flex' }}>
-                    {row.map((cell, colIndex) => (
-                      <div
-                        key={`c-${rowIndex}-${colIndex}`}
-                        style={{
-                          display: 'flex',
-                          width: 6,
-                          height: 6,
-                          backgroundColor: cell ? '#020617' : '#FFFFFF',
-                        }}
-                      />
-                    ))}
-                  </div>
-                ))}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={qrCodeDataUrl}
+                  alt="Verification QR code"
+                  width={QR_IMAGE_SIZE}
+                  height={QR_IMAGE_SIZE}
+                  style={{
+                    display: 'flex',
+                    width: QR_IMAGE_SIZE,
+                    height: QR_IMAGE_SIZE,
+                  }}
+                />
               </div>
               <div
                 style={{

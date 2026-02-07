@@ -1,5 +1,12 @@
-import { pgTable, text, serial, timestamp, jsonb, index, integer } from 'drizzle-orm/pg-core';
+import { pgTable, text, serial, timestamp, jsonb, index, integer, pgEnum } from 'drizzle-orm/pg-core';
 import { TelemetryEvent } from '@/types/telemetry';
+
+export const validationStatusEnum = pgEnum('validation_status_enum', [
+  'VERIFIED_HUMAN',
+  'SUSPICIOUS',
+  'LOW_EFFORT',
+  'INSUFFICIENT_DATA',
+]);
 
 export const telemetryEvents = pgTable(
   'telemetry_events',
@@ -26,7 +33,7 @@ export const certificates = pgTable(
     score: integer('score').notNull(),
     seed: text('seed').notNull(),
     sparkline: jsonb('sparkline').$type<number[]>().notNull(),
-    validationStatus: text('validation_status'),
+    validationStatus: validationStatusEnum('validation_status'),
   },
   (table) => ({
     issuedAtIdx: index('certificate_issued_at_idx').on(table.issuedAt),
