@@ -25,6 +25,7 @@ const MIN_TYPING_INTERVALS = 5;
 const MAX_VALID_INTERVAL_MS = 2000;
 const MIN_STD_DEV_MS = 15;
 const MAX_EVENTS_HISTORY = 10000;
+const EVENTS_TRIM_TARGET = 9500;
 const LOW_CV_THRESHOLD = 0.2;
 const LOW_CV_MEAN_THRESHOLD = 150;
 
@@ -53,8 +54,8 @@ export class TelemetryTracker {
 
     private enforceLimit() {
         if (this.events.length > MAX_EVENTS_HISTORY) {
-            // Keep the last N events
-            this.events.shift();
+            // Trim in chunks to avoid O(n) work on every new event after crossing the cap.
+            this.events.splice(0, this.events.length - EVENTS_TRIM_TARGET);
         }
     }
 

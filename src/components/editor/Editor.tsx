@@ -1,7 +1,7 @@
 'use client';
 
 import { useEditor, EditorContent } from '@tiptap/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
@@ -14,69 +14,89 @@ import TypingVelocitySparkline from '@/components/telemetry/TypingVelocitySparkl
 const getStatusColor = (status: ValidationStatus = 'INSUFFICIENT_DATA') => {
   switch (status) {
     case 'VERIFIED_HUMAN':
-      return 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800';
+      return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/35';
     case 'SUSPICIOUS':
     case 'LOW_EFFORT':
-      return 'bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800';
+      return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/35';
     default:
-      return 'bg-stone-50 text-stone-700 border-stone-200 dark:bg-stone-800/50 dark:text-stone-400 dark:border-stone-700';
+      return 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/70 dark:text-slate-300 dark:border-slate-700';
   }
 };
 
-interface EditorProps {
-  sessionId: string;
+export interface EditorSessionSnapshot {
+  text: string;
+  events: TelemetryEvent[];
+  validationStatus: ValidationStatus;
 }
 
-const Editor = ({ sessionId }: EditorProps) => {
-  const { trackKeystroke, trackPaste, updateValidation, validationResult, getUiEvents, isWarming } = useMindprintTelemetry({ sessionId });
-  const [sparklineData, setSparklineData] = useState<TelemetryEvent[]>([]);
+interface EditorProps {
+  sessionId?: string;
+  onSessionChange?: (snapshot: EditorSessionSnapshot) => void;
+}
 
-  // Update sparkline data periodically instead of on every render
+const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
+  const { trackKeystroke, trackPaste, updateValidation, validationResult, getUiEvents, isWarming } =
+    useMindprintTelemetry({ sessionId });
+  const [sparklineData, setSparklineData] = useState<TelemetryEvent[]>(() => getUiEvents());
+
+  const emitSessionSnapshot = useCallback(
+    (text: string) => {
+      if (!onSessionChange) return;
+      onSessionChange({
+        text,
+        events: getUiEvents(),
+        validationStatus: validationResult.status,
+      });
+    },
+    [getUiEvents, onSessionChange, validationResult.status]
+  );
+
   useEffect(() => {
-    // Populate initial data
-    setSparklineData(getUiEvents());
-
-    // Update every second
     const intervalId = setInterval(() => {
       setSparklineData(getUiEvents());
     }, 1000);
 
     return () => clearInterval(intervalId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // getUiEvents is stable (useCallback with empty deps), no need to include
+  }, [getUiEvents]);
 
   const editor = useEditor({
     extensions: [
       StarterKit,
       Placeholder.configure({
         placeholder: 'Start writing...',
-        emptyEditorClass: 'is-editor-empty before:content-[attr(data-placeholder)] before:text-stone-400 before:float-left before:h-0 pointer-events-none',
+        emptyEditorClass:
+          'is-editor-empty before:content-[attr(data-placeholder)] before:text-slate-400 dark:before:text-slate-500 before:float-left before:h-0 pointer-events-none',
       }),
       CharacterCount.configure(),
     ],
     content: '',
     onUpdate: ({ editor }) => {
-      // Use efficient character count from extension
       updateValidation(editor.storage.characterCount.characters());
+      emitSessionSnapshot(editor.getText());
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-stone dark:prose-invert max-w-none focus:outline-none min-h-[50vh] text-lg leading-relaxed',
+        class: 'prose prose-slate dark:prose-invert max-w-none focus:outline-none min-h-[46vh] text-lg leading-relaxed',
       },
       handleKeyDown: (_, event) => {
         trackKeystroke(event);
-        return false; // Let the event bubble/perform default action
+        return false;
       },
       handlePaste: (_, event) => {
         trackPaste(event);
-        return false; // Let the event bubble/perform default action
+        return false;
       },
     },
     immediatelyRender: false,
   });
 
+  useEffect(() => {
+    if (!editor) return;
+    emitSessionSnapshot(editor.getText());
+  }, [editor, emitSessionSnapshot]);
+
   return (
-    <div className="w-full max-w-3xl mx-auto relative px-4 sm:px-0">
+    <div className="w-full max-w-4xl mx-auto relative px-2 sm:px-0">
       <div className="flex flex-wrap justify-between items-end gap-2 mb-4">
         <Toolbar editor={editor} />
         <div
@@ -102,18 +122,18 @@ const Editor = ({ sessionId }: EditorProps) => {
         </div>
       </div>
       <div className="mb-6">
-        <div className="text-[10px] uppercase tracking-[0.2em] sm:tracking-[0.3em] text-stone-500 dark:text-stone-400 font-mono mb-3">
+        <div className="text-[10px] uppercase tracking-[0.2em] sm:tracking-[0.3em] text-slate-500 dark:text-slate-400 font-mono mb-3">
           Typing Velocity Over Time
         </div>
-        <div className="p-3 sm:p-5 rounded-xl border border-stone-200/60 dark:border-stone-800/60 bg-gradient-to-br from-stone-900/95 via-stone-950/95 to-slate-900/95 shadow-[0_0_32px_rgba(56,189,248,0.18)] backdrop-blur-sm">
+        <div className="p-3 sm:p-5 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 shadow-[0_12px_30px_rgba(15,23,42,0.06)] dark:border-slate-700 dark:bg-gradient-to-br dark:from-slate-900 dark:to-slate-950 dark:shadow-[0_12px_30px_rgba(2,6,23,0.45)]">
           <TypingVelocitySparkline data={sparklineData} height={160} />
         </div>
       </div>
-      <div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_12px_30px_rgba(15,23,42,0.04)] dark:border-slate-700 dark:bg-slate-900 dark:shadow-[0_12px_30px_rgba(2,6,23,0.45)]">
         <EditorContent editor={editor} />
       </div>
     </div>
   );
-}
+};
 
 export default Editor;

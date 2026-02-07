@@ -1,0 +1,1 @@
+CREATE INDEX "session_id_idx" ON "telemetry_events" USING btree ("session_id");

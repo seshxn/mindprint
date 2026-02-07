@@ -217,17 +217,17 @@ export const TypingVelocitySparkline = ({
       >
         <defs>
           <linearGradient id="typingVelocityNeon" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#22d3ee" />
-            <stop offset="45%" stopColor="#a78bfa" />
-            <stop offset="100%" stopColor="#f472b6" />
+            <stop offset="0%" stopColor="#0ea5e9" />
+            <stop offset="45%" stopColor="#6366f1" />
+            <stop offset="100%" stopColor="#7c3aed" />
           </linearGradient>
           <linearGradient id="typingVelocityArea" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#22d3ee" stopOpacity="0.3" />
-            <stop offset="50%" stopColor="#a78bfa" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="#f472b6" stopOpacity="0.05" />
+            <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.24" />
+            <stop offset="50%" stopColor="#6366f1" stopOpacity="0.14" />
+            <stop offset="100%" stopColor="#7c3aed" stopOpacity="0.04" />
           </linearGradient>
           <filter id="typingVelocityGlow" x="-20%" y="-50%" width="140%" height="200%">
-            <feGaussianBlur stdDeviation="3.5" result="blur" />
+            <feGaussianBlur stdDeviation="2.6" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
@@ -235,7 +235,7 @@ export const TypingVelocitySparkline = ({
           </filter>
         </defs>
         <rect x="0" y="0" width={numericWidth} height={height} fill="transparent" />
-        <g opacity="0.35" stroke="#38bdf8" strokeWidth="1">
+        <g opacity="0.4" stroke="#94a3b8" strokeWidth="1">
           <line x1={PADDING} y1={height / 2} x2={numericWidth - PADDING} y2={height / 2} />
           <line x1={PADDING} y1={PADDING} x2={numericWidth - PADDING} y2={PADDING} />
           <line x1={PADDING} y1={height - PADDING} x2={numericWidth - PADDING} y2={height - PADDING} />
@@ -249,9 +249,9 @@ export const TypingVelocitySparkline = ({
             />
             <path
               d={path}
-              stroke="#22d3ee"
-              strokeOpacity="0.55"
-              strokeWidth="6"
+              stroke="#0ea5e9"
+              strokeOpacity="0.35"
+              strokeWidth="5"
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -282,7 +282,7 @@ export const TypingVelocitySparkline = ({
             y="50%"
             dominantBaseline="middle"
             textAnchor="middle"
-            fill="#94a3b8"
+            fill="#64748b"
             fontSize="12"
             fontFamily="var(--font-geist-mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace)"
           >
@@ -294,23 +294,23 @@ export const TypingVelocitySparkline = ({
         <div className="mt-3 flex flex-wrap items-center justify-between gap-y-2 text-[10px] uppercase tracking-[0.15em] font-mono">
           <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
             <div className="whitespace-nowrap">
-              <span className="text-sky-300/60">Peak </span>
-              <span className="text-sky-300 font-semibold">{maxVelocity.toFixed(1)}</span>
-              <span className="text-sky-300/60"> keys/s</span>
+              <span className="text-sky-700/60 dark:text-sky-300/60">Peak </span>
+              <span className="text-sky-700 font-semibold dark:text-sky-300">{maxVelocity.toFixed(1)}</span>
+              <span className="text-sky-700/60 dark:text-sky-300/60"> keys/s</span>
             </div>
             <div className="whitespace-nowrap">
-              <span className="text-purple-300/60">Avg </span>
-              <span className="text-purple-300 font-semibold">{avgVelocity.toFixed(1)}</span>
-              <span className="text-purple-300/60"> keys/s</span>
+              <span className="text-indigo-700/60 dark:text-indigo-300/60">Avg </span>
+              <span className="text-indigo-700 font-semibold dark:text-indigo-300">{avgVelocity.toFixed(1)}</span>
+              <span className="text-indigo-700/60 dark:text-indigo-300/60"> keys/s</span>
             </div>
             <div className="whitespace-nowrap">
-              <span className="text-pink-300/60">Current </span>
-              <span className="text-pink-300 font-semibold">{currentVelocity.toFixed(1)}</span>
-              <span className="text-pink-300/60"> keys/s</span>
+              <span className="text-violet-700/60 dark:text-violet-300/60">Current </span>
+              <span className="text-violet-700 font-semibold dark:text-violet-300">{currentVelocity.toFixed(1)}</span>
+              <span className="text-violet-700/60 dark:text-violet-300/60"> keys/s</span>
             </div>
           </div>
           {durationSeconds > 0 && (
-            <div className="text-stone-400/60 whitespace-nowrap">
+            <div className="text-slate-500 dark:text-slate-300 whitespace-nowrap">
               {durationSeconds < 60
                 ? `${Math.round(durationSeconds)}s`
                 : `${Math.floor(durationSeconds / 60)}m ${Math.round(durationSeconds % 60)}s`}

@@ -1,6 +1,6 @@
 'use server';
 
-import { db } from '@/db';
+import { db, hasDatabaseUrl } from '@/db';
 import { analysisResults, telemetryEvents } from '@/db/schema';
 import { eq, desc } from 'drizzle-orm';
 
@@ -11,6 +11,13 @@ export const analyzeSession = async (sessionId: string) => {
         return {
             error: 'MISSING_SESSION_ID',
             message: 'Session ID is required for analysis.'
+        };
+    }
+
+    if (!hasDatabaseUrl) {
+        return {
+            error: 'MISSING_DATABASE_URL',
+            message: 'DATABASE_URL is not configured for this environment.'
         };
     }
 
