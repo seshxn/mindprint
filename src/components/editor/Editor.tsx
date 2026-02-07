@@ -23,8 +23,12 @@ const getStatusColor = (status: ValidationStatus = 'INSUFFICIENT_DATA') => {
   }
 };
 
-const Editor = () => {
-  const { trackKeystroke, trackPaste, updateValidation, validationResult, getUiEvents, isWarming } = useMindprintTelemetry();
+interface EditorProps {
+  sessionId: string;
+}
+
+const Editor = ({ sessionId }: EditorProps) => {
+  const { trackKeystroke, trackPaste, updateValidation, validationResult, getUiEvents, isWarming } = useMindprintTelemetry({ sessionId });
   const [sparklineData, setSparklineData] = useState<TelemetryEvent[]>([]);
 
   // Update sparkline data periodically instead of on every render

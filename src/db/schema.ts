@@ -9,3 +9,10 @@ export const telemetryEvents = pgTable('telemetry_events', {
 }, (table) => ({
   sessionIdIdx: index('session_id_idx').on(table.sessionId),
 }));
+
+export const analysisResults = pgTable('analysis_results', {
+  id: serial('id').primaryKey(),
+  sessionId: text('session_id').notNull(),
+  result: text('result').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+});
