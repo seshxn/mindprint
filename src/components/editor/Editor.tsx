@@ -1,12 +1,15 @@
 'use client';
 
 import { useEditor, EditorContent } from '@tiptap/react';
+import { useState, useEffect } from 'react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import CharacterCount from '@tiptap/extension-character-count';
 import { Toolbar } from './Toolbar';
 import { useMindprintTelemetry } from '@/hooks/useMindprintTelemetry';
 import { ValidationStatus } from '@/lib/telemetry';
+import { TelemetryEvent } from '@/types/telemetry';
+import TypingVelocitySparkline from '@/components/telemetry/TypingVelocitySparkline';
 
 const getStatusColor = (status: ValidationStatus = 'INSUFFICIENT_DATA') => {
   switch (status) {
@@ -25,7 +28,22 @@ interface EditorProps {
 }
 
 const Editor = ({ sessionId }: EditorProps) => {
-  const { trackKeystroke, trackPaste, updateValidation, validationResult } = useMindprintTelemetry({ sessionId });
+  const { trackKeystroke, trackPaste, updateValidation, validationResult, getUiEvents, isWarming } = useMindprintTelemetry({ sessionId });
+  const [sparklineData, setSparklineData] = useState<TelemetryEvent[]>([]);
+
+  // Update sparkline data periodically instead of on every render
+  useEffect(() => {
+    // Populate initial data
+    setSparklineData(getUiEvents());
+
+    // Update every second
+    const intervalId = setInterval(() => {
+      setSparklineData(getUiEvents());
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // getUiEvents is stable (useCallback with empty deps), no need to include
 
   const editor = useEditor({
     extensions: [
@@ -58,19 +76,40 @@ const Editor = ({ sessionId }: EditorProps) => {
   });
 
   return (
-    <div className="w-full max-w-3xl mx-auto relative">
-      <div className="flex justify-between items-end mb-4">
+    <div className="w-full max-w-3xl mx-auto relative px-4 sm:px-0">
+      <div className="flex flex-wrap justify-between items-end gap-2 mb-4">
         <Toolbar editor={editor} />
-        <div className={`text-xs font-mono px-2 py-1 rounded border ${getStatusColor(validationResult.status)}`}>
-          PoH: {validationResult.status.replaceAll('_', ' ')}
-          {validationResult.status !== 'VERIFIED_HUMAN' && validationResult.reason && (
+        <div
+          className={`text-xs font-mono px-2 py-1 rounded border ${getStatusColor(validationResult.status)}`}
+          title="Based on typing rhythm, not text content."
+          aria-label="Proof of Humanity status based on typing rhythm, not text content."
+        >
+          <span className="inline-flex items-center gap-1">
+            PoH
+            <span
+              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-current text-[9px] leading-none opacity-70"
+              aria-hidden="true"
+            >
+              i
+            </span>
+            : {validationResult.status.replaceAll('_', ' ')}
+          </span>
+          {validationResult.status !== 'VERIFIED_HUMAN' && (
             <span className="block opacity-75 text-[10px] whitespace-pre-wrap max-w-[200px]">
-              {validationResult.reason}
+              {isWarming ? 'Warming up…' : validationResult.reason}
             </span>
           )}
         </div>
       </div>
-      <div className="px-4 sm:px-0">
+      <div className="mb-6">
+        <div className="text-[10px] uppercase tracking-[0.2em] sm:tracking-[0.3em] text-stone-500 dark:text-stone-400 font-mono mb-3">
+          Typing Velocity Over Time
+        </div>
+        <div className="p-3 sm:p-5 rounded-xl border border-stone-200/60 dark:border-stone-800/60 bg-gradient-to-br from-stone-900/95 via-stone-950/95 to-slate-900/95 shadow-[0_0_32px_rgba(56,189,248,0.18)] backdrop-blur-sm">
+          <TypingVelocitySparkline data={sparklineData} height={160} />
+        </div>
+      </div>
+      <div>
         <EditorContent editor={editor} />
       </div>
     </div>
