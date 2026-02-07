@@ -38,7 +38,7 @@ export const Toolbar = ({ editor }: ToolbarProps) => {
   ];
 
   return (
-    <div className="flex items-center gap-2 p-2 mb-4 bg-white/50 backdrop-blur-sm border border-stone-200 rounded-lg shadow-sm w-fit mx-auto transition-all duration-300 opacity-100 dark:bg-stone-900/50 dark:border-stone-800">
+    <div className="flex items-center gap-2 p-2 mb-4 bg-white border border-slate-200 rounded-xl shadow-sm w-fit mx-auto transition-all duration-300 opacity-100 dark:bg-slate-900 dark:border-slate-700">
       {items.map((item, index) => {
         const Icon = item.icon;
         return (
@@ -47,8 +47,8 @@ export const Toolbar = ({ editor }: ToolbarProps) => {
             onClick={item.action}
             disabled={!item.canExecute()}
             className={cn(
-              "p-2 rounded hover:bg-stone-200 dark:hover:bg-stone-800 transition-colors",
-              item.isActive() ? "bg-stone-200 text-stone-900 dark:bg-stone-800 dark:text-stone-100" : "text-stone-500 dark:text-stone-400"
+              "p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors",
+              item.isActive() ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100" : "text-slate-500 dark:text-slate-400"
             )}
             aria-label={item.label}
           >

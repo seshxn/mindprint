@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, jsonb, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, serial, timestamp, jsonb, index, integer } from 'drizzle-orm/pg-core';
 import { TelemetryEvent } from '@/types/telemetry';
 
 export const telemetryEvents = pgTable('telemetry_events', {
@@ -8,4 +8,19 @@ export const telemetryEvents = pgTable('telemetry_events', {
   events: jsonb('events').$type<TelemetryEvent[]>(),
 }, (table) => ({
   sessionIdIdx: index('session_id_idx').on(table.sessionId),
+}));
+
+export const certificates = pgTable('certificates', {
+  id: text('id').primaryKey(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  issuedAt: timestamp('issued_at').notNull(),
+  title: text('title').notNull(),
+  subtitle: text('subtitle').notNull(),
+  text: text('text').notNull(),
+  score: integer('score').notNull(),
+  seed: text('seed').notNull(),
+  sparkline: jsonb('sparkline').$type<number[]>().notNull(),
+  validationStatus: text('validation_status'),
+}, (table) => ({
+  issuedAtIdx: index('certificate_issued_at_idx').on(table.issuedAt),
 }));

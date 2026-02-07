@@ -8,6 +8,20 @@
       "when": 1769799144245,
       "tag": "0000_clear_infant_terrible",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1770446433247,
+      "tag": "0001_stiff_excalibur",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770448115118,
+      "tag": "0002_lethal_sphinx",
+      "breakpoints": true
     }
   ]
 }
