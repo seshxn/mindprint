@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from "react";
 import Editor, { EditorSessionSnapshot } from "@/components/editor/Editor";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -69,6 +69,8 @@ const WritePage = () => {
       riskScore: null,
       confidence: null,
       sessionId: null,
+      telemetryReady: false,
+      telemetryError: null,
     },
   );
   const hasText = useMemo(
@@ -118,7 +120,11 @@ const WritePage = () => {
       setAnalysisOpen(true);
     } catch (analysisError) {
       console.error("Failed to analyze session:", analysisError);
-      setError("Analysis failed. Check model/API configuration and retry.");
+      setError(
+        analysisError instanceof Error
+          ? analysisError.message
+          : "Analysis failed. Please retry.",
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -128,7 +134,9 @@ const WritePage = () => {
     if (!hasText || isFinishing) return;
     if (!sessionSnapshot.sessionId) {
       setError(
-        "Trusted telemetry session is still initializing. Please wait a moment and retry.",
+        sessionSnapshot.telemetryError
+          ? `Trusted telemetry failed to initialize: ${sessionSnapshot.telemetryError}`
+          : "Trusted telemetry session is still initializing. Please wait a moment and retry.",
       );
       return;
     }
@@ -205,6 +213,19 @@ const WritePage = () => {
           </div>
         </header>
 
+        {isAnalyzing && (
+          <div className="pointer-events-none fixed inset-x-0 top-24 z-30 flex justify-center px-4">
+            <div
+              role="status"
+              aria-live="polite"
+              className="inline-flex items-center gap-3 rounded-full border border-sky-300/60 bg-white/95 px-5 py-3 text-sm font-semibold text-sky-800 shadow-[0_18px_40px_rgba(14,165,233,0.25)] backdrop-blur dark:border-sky-700 dark:bg-slate-900/95 dark:text-sky-200"
+            >
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Analyzing typing behavior and cognitive signals...</span>
+            </div>
+          </div>
+        )}
+
         <section className="rounded-[2rem] border border-slate-200 bg-white/80 p-4 shadow-[0_20px_50px_rgba(15,23,42,0.08)] backdrop-blur sm:p-7 dark:border-slate-700 dark:bg-slate-900/75 dark:shadow-[0_20px_50px_rgba(2,6,23,0.45)]">
           <div className="mb-4 px-1">
             <h1 className="text-2xl font-semibold text-slate-900 sm:text-3xl dark:text-slate-100">
@@ -218,6 +239,12 @@ const WritePage = () => {
               <p className="mt-2 text-sm text-rose-600 dark:text-rose-300">
                 {error}
               </p>
+            )}
+            {isAnalyzing && (
+              <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-950/30 dark:text-sky-200">
+                Session analysis is running in the background. You can keep
+                writing while we process your telemetry.
+              </div>
             )}
           </div>
           <Editor onSessionChange={setSessionSnapshot} />

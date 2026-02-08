@@ -30,6 +30,8 @@ export interface EditorSessionSnapshot {
   riskScore: number | null;
   confidence: number | null;
   sessionId: string | null;
+  telemetryReady: boolean;
+  telemetryError: string | null;
 }
 
 interface EditorProps {
@@ -48,6 +50,9 @@ const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
     isWarming,
     sessionId: activeSessionId,
     telemetryReady,
+    telemetryError,
+    telemetryInitializing,
+    retryTelemetryInit,
   } = useMindprintTelemetry();
   const [sparklineData, setSparklineData] = useState<TelemetryEvent[]>(() =>
     getUiEvents(),
@@ -63,6 +68,8 @@ const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
         riskScore: validationResult.metrics?.riskScore ?? null,
         confidence: validationResult.metrics?.confidence ?? null,
         sessionId: activeSessionId || sessionId || null,
+        telemetryReady,
+        telemetryError,
       });
     },
     [
@@ -70,6 +77,8 @@ const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
       getUiEvents,
       onSessionChange,
       sessionId,
+      telemetryError,
+      telemetryReady,
       validationResult.metrics?.confidence,
       validationResult.metrics?.riskScore,
       validationResult.status,
@@ -148,9 +157,27 @@ const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
             </span>
           )}
           {!telemetryReady && (
-            <span className="block opacity-75 text-[10px] whitespace-pre-wrap max-w-[200px]">
-              Initializing trusted telemetry session...
-            </span>
+            <>
+              {telemetryError ? (
+                <span className="block opacity-90 text-[10px] whitespace-pre-wrap max-w-[220px]">
+                  Trusted telemetry unavailable. {telemetryError}
+                </span>
+              ) : (
+                <span className="block opacity-75 text-[10px] whitespace-pre-wrap max-w-[200px]">
+                  {telemetryInitializing
+                    ? "Initializing trusted telemetry session..."
+                    : "Telemetry not ready yet."}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={retryTelemetryInit}
+                disabled={telemetryInitializing}
+                className="mt-1 inline-flex rounded border border-current/50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide opacity-85 transition hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                {telemetryInitializing ? "Retrying..." : "Retry"}
+              </button>
+            </>
           )}
         </div>
       </div>

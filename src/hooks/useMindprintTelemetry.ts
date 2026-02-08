@@ -15,6 +15,8 @@ interface UseMindprintTelemetryOptions {
 const MAX_UI_EVENTS = 4000;
 const MIN_TYPED_EVENTS_FOR_WARMING = 10;
 const VALIDATION_THROTTLE_MS = 400;
+const TELEMETRY_INIT_MAX_ATTEMPTS = 4;
+const TELEMETRY_INIT_BASE_RETRY_MS = 1200;
 
 const diffText = (previousText: string, nextText: string) => {
   if (previousText === nextText) return null;
@@ -87,6 +89,13 @@ export const useMindprintTelemetry = ({
     status: "INSUFFICIENT_DATA",
   });
   const [isWarming, setIsWarming] = useState(false);
+  const [telemetryReady, setTelemetryReady] = useState(false);
+  const [telemetryError, setTelemetryError] = useState<string | null>(null);
+  const [telemetryInitializing, setTelemetryInitializing] = useState(false);
+  const [initCycle, setInitCycle] = useState(0);
+
+  const wait = (ms: number) =>
+    new Promise<void>((resolve) => setTimeout(resolve, ms));
 
   const addToUiBuffer = useCallback((event: TelemetryEvent) => {
     uiEventsRef.current[uiEventsHeadRef.current] = event;
@@ -117,35 +126,69 @@ export const useMindprintTelemetry = ({
     return result;
   }, []);
 
+  const retryTelemetryInit = useCallback(() => {
+    if (!enabled || sessionRef.current || initInFlightRef.current) return;
+    setTelemetryReady(false);
+    setInitCycle((previous) => previous + 1);
+  }, [enabled]);
+
   useEffect(() => {
     if (!enabled || sessionRef.current || initInFlightRef.current) return;
     let cancelled = false;
     initInFlightRef.current = true;
 
     const start = async () => {
-      try {
-        const initialized = await initTelemetrySession();
-        if (cancelled) return;
-        sessionRef.current = {
-          sessionId: initialized.sessionId,
-          sessionToken: initialized.sessionToken,
-        };
-        setSessionId(initialized.sessionId);
-      } catch (error) {
-        console.error(
-          "[Mindprint Telemetry] Failed to initialize session.",
-          error,
-        );
-      } finally {
-        initInFlightRef.current = false;
+      setTelemetryInitializing(true);
+      setTelemetryError(null);
+      for (
+        let attempt = 1;
+        attempt <= TELEMETRY_INIT_MAX_ATTEMPTS && !cancelled;
+        attempt += 1
+      ) {
+        try {
+          const initialized = await initTelemetrySession();
+          if (cancelled) return;
+          sessionRef.current = {
+            sessionId: initialized.sessionId,
+            sessionToken: initialized.sessionToken,
+          };
+          setSessionId(initialized.sessionId);
+          setTelemetryReady(true);
+          setTelemetryError(null);
+          return;
+        } catch (error) {
+          const message =
+            error instanceof Error
+              ? error.message
+              : "Unknown telemetry initialization error.";
+          console.error(
+            `[Mindprint Telemetry] Failed to initialize session (attempt ${attempt}/${TELEMETRY_INIT_MAX_ATTEMPTS}).`,
+            error,
+          );
+          if (!cancelled) {
+            setTelemetryError(message);
+          }
+          if (attempt < TELEMETRY_INIT_MAX_ATTEMPTS) {
+            const jitter = Math.floor(Math.random() * 200);
+            const delay =
+              TELEMETRY_INIT_BASE_RETRY_MS * attempt + jitter;
+            await wait(delay);
+          }
+        }
       }
     };
 
-    start();
+    void start().finally(() => {
+      initInFlightRef.current = false;
+      if (!cancelled) {
+        setTelemetryInitializing(false);
+      }
+    });
     return () => {
       cancelled = true;
+      initInFlightRef.current = false;
     };
-  }, [enabled]);
+  }, [enabled, initCycle]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -282,6 +325,9 @@ export const useMindprintTelemetry = ({
     getUiEvents,
     isWarming,
     sessionId,
-    telemetryReady: Boolean(sessionRef.current),
+    telemetryError,
+    telemetryInitializing,
+    telemetryReady,
+    retryTelemetryInit,
   };
 };

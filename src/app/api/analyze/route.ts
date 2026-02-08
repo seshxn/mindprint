@@ -12,6 +12,75 @@ type AnalysisResponse = {
   analysis_summary?: string;
 };
 
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 503, 504]);
+const MAX_ANALYSIS_ATTEMPTS = 3;
+const INITIAL_RETRY_DELAY_MS = 600;
+
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+const getErrorStatus = (error: unknown) => {
+  if (!error || typeof error !== "object") {
+    return null;
+  }
+
+  const candidate = error as { status?: unknown; message?: unknown };
+  if (typeof candidate.status === "number") {
+    return candidate.status;
+  }
+
+  if (typeof candidate.message === "string") {
+    const match = candidate.message.match(/"code"\s*:\s*(\d{3})/);
+    if (match) {
+      return Number(match[1]);
+    }
+  }
+
+  return null;
+};
+
+const generateAnalysisText = async (log: unknown) => {
+  for (let attempt = 1; attempt <= MAX_ANALYSIS_ATTEMPTS; attempt += 1) {
+    try {
+      const response = await gemini.models.generateContent({
+        model: ANALYSIS_MODEL_ID,
+        contents: `Analyze the following typing log:\n\n${JSON.stringify(log, null, 2)}`,
+        config: {
+          systemInstruction: FORENSIC_LINGUIST_PROMPT,
+          responseMimeType: "application/json",
+        },
+      });
+
+      const text = response.text;
+      if (!text) {
+        throw new Error("No response text received from Gemini");
+      }
+
+      return text;
+    } catch (error) {
+      const status = getErrorStatus(error);
+      const canRetry =
+        status !== null &&
+        RETRYABLE_STATUS_CODES.has(status) &&
+        attempt < MAX_ANALYSIS_ATTEMPTS;
+
+      if (!canRetry) {
+        throw error;
+      }
+
+      const jitterMs = Math.floor(Math.random() * 250);
+      const delayMs =
+        INITIAL_RETRY_DELAY_MS * 2 ** (attempt - 1) + jitterMs;
+      console.warn(
+        `Transient Gemini error (status ${status}) on attempt ${attempt}/${MAX_ANALYSIS_ATTEMPTS}; retrying in ${delayMs}ms.`,
+      );
+      await sleep(delayMs);
+    }
+  }
+
+  throw new Error("Failed to analyze log after retries");
+};
+
 const parseAnalysis = (raw: string): AnalysisResponse => {
   try {
     return JSON.parse(raw) as AnalysisResponse;
@@ -32,19 +101,7 @@ export const POST = async (req: NextRequest) => {
       return NextResponse.json({ error: "Missing log data" }, { status: 400 });
     }
 
-    const response = await gemini.models.generateContent({
-      model: ANALYSIS_MODEL_ID,
-      contents: `Analyze the following typing log:\n\n${JSON.stringify(log, null, 2)}`,
-      config: {
-        systemInstruction: FORENSIC_LINGUIST_PROMPT,
-        responseMimeType: "application/json",
-      },
-    });
-
-    const text = response.text;
-    if (!text) {
-      throw new Error("No response text received from Gemini");
-    }
+    const text = await generateAnalysisText(log);
 
     const analysis = parseAnalysis(text);
 
@@ -69,6 +126,22 @@ export const POST = async (req: NextRequest) => {
     return NextResponse.json(analysis);
   } catch (error) {
     console.error("Analysis failed:", error);
+
+    const status = getErrorStatus(error);
+    if (status === 429 || status === 503 || status === 504) {
+      return NextResponse.json(
+        { error: "Analysis model is currently busy. Please retry in a few seconds." },
+        { status: 503 },
+      );
+    }
+
+    if (status === 401 || status === 403) {
+      return NextResponse.json(
+        { error: "Analysis provider rejected the request. Check GOOGLE_API_KEY permissions." },
+        { status: 502 },
+      );
+    }
+
     return NextResponse.json(
       { error: "Failed to analyze log" },
       { status: 500 },
