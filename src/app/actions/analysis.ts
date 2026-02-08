@@ -3,9 +3,10 @@
 import { db, hasDatabaseUrl } from "@/db";
 import { analysisResults, telemetryEvents } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { ANALYSIS_MODEL_ID } from "@/lib/constants";
 
 const GEMINI_API_URL =
-  "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent";
+  `https://generativelanguage.googleapis.com/v1beta/models/${ANALYSIS_MODEL_ID}:generateContent`;
 
 export const analyzeSession = async (sessionId: string) => {
   if (!sessionId) {
