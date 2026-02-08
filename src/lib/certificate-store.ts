@@ -30,6 +30,13 @@ export interface CreateCertificateInput {
   confidence?: number;
 }
 
+const CERTIFICATE_TITLE_MAX_LENGTH = 120;
+const CERTIFICATE_SUBTITLE_MAX_LENGTH = 120;
+const CERTIFICATE_TEXT_MAX_LENGTH = 420;
+const DEFAULT_CERTIFICATE_TITLE = "Mindprint Human Origin Certificate";
+const DEFAULT_CERTIFICATE_SUBTITLE = "Proof of Human Creation";
+const DEFAULT_CERTIFICATE_TEXT = "No transcript attached to this certificate.";
+
 const safeId = () => `mp-${randomUUID().replace(/-/g, "").slice(0, 12)}`;
 
 const normalizeSparkline = (values: number[]) => {
@@ -189,10 +196,14 @@ export const createCertificateRecord = async (
   const normalizedSparkline = normalizeSparkline(input.sparkline);
   const replay = normalizeReplay(input.replay);
   const title =
-    input.title.slice(0, 120) || "Mindprint Human Origin Certificate";
-  const subtitle = input.subtitle.slice(0, 120) || "Proof of Human Creation";
+    input.title.slice(0, CERTIFICATE_TITLE_MAX_LENGTH) ||
+    DEFAULT_CERTIFICATE_TITLE;
+  const subtitle =
+    input.subtitle.slice(0, CERTIFICATE_SUBTITLE_MAX_LENGTH) ||
+    DEFAULT_CERTIFICATE_SUBTITLE;
   const text =
-    input.text.slice(0, 420) || "No transcript attached to this certificate.";
+    input.text.slice(0, CERTIFICATE_TEXT_MAX_LENGTH) ||
+    DEFAULT_CERTIFICATE_TEXT;
   const score = Math.round(Math.max(0, Math.min(100, input.score)));
   const seed = (input.seed || id).slice(0, 120);
 

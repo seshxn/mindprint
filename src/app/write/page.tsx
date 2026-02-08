@@ -18,26 +18,73 @@ import { AnalysisResult } from "@/components/AnalysisResult";
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
+const SCORE_MODEL = {
+  defaultRiskScore: 50,
+  defaultConfidence: 0.3,
+  uncertaintyPenaltyScale: 20,
+  calibratedRange: {
+    min: 1,
+    max: 99,
+  },
+  statusBounds: {
+    VERIFIED_HUMAN: {
+      minimum: 68,
+    },
+    SUSPICIOUS: {
+      maximum: 45,
+    },
+    LOW_EFFORT: {
+      maximum: 28,
+    },
+  },
+} as const;
+
 const scoreFromSnapshot = (
   snapshot: EditorSessionSnapshot,
   hasText: boolean,
 ) => {
   if (!hasText) return 0;
-  const risk = snapshot.riskScore ?? 50;
-  const confidence = snapshot.confidence ?? 0.3;
+  const risk = snapshot.riskScore ?? SCORE_MODEL.defaultRiskScore;
+  const confidence = snapshot.confidence ?? SCORE_MODEL.defaultConfidence;
   const base = 100 - risk;
-  const uncertaintyPenalty = (1 - confidence) * 20;
-  const calibrated = Math.round(clamp(base - uncertaintyPenalty, 1, 99));
+  const uncertaintyPenalty =
+    (1 - confidence) * SCORE_MODEL.uncertaintyPenaltyScale;
+  const calibrated = Math.round(
+    clamp(
+      base - uncertaintyPenalty,
+      SCORE_MODEL.calibratedRange.min,
+      SCORE_MODEL.calibratedRange.max,
+    ),
+  );
 
   switch (snapshot.validationStatus) {
     case "VERIFIED_HUMAN":
-      return clamp(Math.max(calibrated, 68), 0, 99);
+      return clamp(
+        Math.max(
+          calibrated,
+          SCORE_MODEL.statusBounds.VERIFIED_HUMAN.minimum,
+        ),
+        0,
+        SCORE_MODEL.calibratedRange.max,
+      );
     case "SUSPICIOUS":
-      return clamp(Math.min(calibrated, 45), 0, 99);
+      return clamp(
+        Math.min(calibrated, SCORE_MODEL.statusBounds.SUSPICIOUS.maximum),
+        0,
+        SCORE_MODEL.calibratedRange.max,
+      );
     case "LOW_EFFORT":
-      return clamp(Math.min(calibrated, 28), 0, 99);
+      return clamp(
+        Math.min(calibrated, SCORE_MODEL.statusBounds.LOW_EFFORT.maximum),
+        0,
+        SCORE_MODEL.calibratedRange.max,
+      );
     default:
-      return clamp(calibrated, 0, 99);
+      return clamp(
+        calibrated,
+        0,
+        SCORE_MODEL.calibratedRange.max,
+      );
   }
 };
 
