@@ -1,10 +1,15 @@
-'use client';
+"use client";
 
-import React, { useMemo } from 'react';
-import { TelemetryEvent } from '@/types/telemetry';
-import { cn } from '@/lib/utils';
+import React, { useMemo } from "react";
+import { TelemetryEvent } from "@/types/telemetry";
+import { cn } from "@/lib/utils";
 
-type TelemetryInput = TelemetryEvent[] | { events: TelemetryEvent[] } | string | null | undefined;
+type TelemetryInput =
+  | TelemetryEvent[]
+  | { events: TelemetryEvent[] }
+  | string
+  | null
+  | undefined;
 
 interface TypingVelocitySparklineProps {
   data: TelemetryInput;
@@ -33,7 +38,7 @@ const parseTelemetry = (input: TelemetryInput): TelemetryEvent[] => {
     return input;
   }
 
-  if (typeof input === 'string') {
+  if (typeof input === "string") {
     try {
       const parsed = JSON.parse(input);
       if (Array.isArray(parsed)) {
@@ -43,12 +48,15 @@ const parseTelemetry = (input: TelemetryInput): TelemetryEvent[] => {
         return parsed.events as TelemetryEvent[];
       }
     } catch (error) {
-      console.error('[TypingVelocitySparkline] Failed to parse telemetry data string:', error);
+      console.error(
+        "[TypingVelocitySparkline] Failed to parse telemetry data string:",
+        error,
+      );
       return [];
     }
   }
 
-  if (typeof input === 'object' && Array.isArray(input.events)) {
+  if (typeof input === "object" && Array.isArray(input.events)) {
     return input.events;
   }
 
@@ -58,9 +66,9 @@ const parseTelemetry = (input: TelemetryInput): TelemetryEvent[] => {
 const buildVelocitySeries = (events: TelemetryEvent[], bucketMs: number) => {
   const typingEvents = events.filter(
     (event) =>
-      event.type === 'keystroke' &&
-      (event.action === 'char' || event.action === 'delete')
-  ) as Extract<TelemetryEvent, { type: 'keystroke' }>[];
+      event.type === "keystroke" &&
+      (event.action === "char" || event.action === "delete"),
+  ) as Extract<TelemetryEvent, { type: "keystroke" }>[];
 
   if (typingEvents.length === 0) {
     return [];
@@ -73,7 +81,10 @@ const buildVelocitySeries = (events: TelemetryEvent[], bucketMs: number) => {
   const buckets = new Array(bucketCount).fill(0);
 
   for (const event of sorted) {
-    const idx = Math.min(bucketCount - 1, Math.floor((event.timestamp - start) / bucketMs));
+    const idx = Math.min(
+      bucketCount - 1,
+      Math.floor((event.timestamp - start) / bucketMs),
+    );
     buckets[idx] += 1;
   }
 
@@ -90,7 +101,7 @@ const buildVelocitySeries = (events: TelemetryEvent[], bucketMs: number) => {
 const mapToPoints = (
   series: { time: number; velocity: number }[],
   width: number,
-  height: number
+  height: number,
 ): VelocityPoint[] => {
   if (series.length === 0) {
     return [];
@@ -106,7 +117,8 @@ const mapToPoints = (
       series.length === 1
         ? width / 2
         : PADDING + (index / (series.length - 1)) * usableWidth;
-    const normalized = (item.velocity - minVelocity) / (maxVelocity - minVelocity);
+    const normalized =
+      (item.velocity - minVelocity) / (maxVelocity - minVelocity);
     const y = PADDING + (1 - normalized) * usableHeight;
     return { x, y };
   });
@@ -114,7 +126,7 @@ const mapToPoints = (
 
 const buildSmoothPath = (points: VelocityPoint[]) => {
   if (points.length === 0) {
-    return '';
+    return "";
   }
   if (points.length === 1) {
     return `M${points[0].x} ${points[0].y}`;
@@ -148,13 +160,13 @@ const buildSmoothPath = (points: VelocityPoint[]) => {
 
 const buildAreaPath = (points: VelocityPoint[], height: number) => {
   if (points.length === 0) {
-    return '';
+    return "";
   }
 
   const linePath = buildSmoothPath(points);
   const bottomRight = `L${points[points.length - 1].x} ${height - PADDING}`;
   const bottomLeft = `L${points[0].x} ${height - PADDING}`;
-  const close = 'Z';
+  const close = "Z";
 
   return `${linePath} ${bottomRight} ${bottomLeft} ${close}`;
 };
@@ -166,17 +178,36 @@ export const TypingVelocitySparkline = ({
   bucketMs = DEFAULT_BUCKET_MS,
   className,
 }: TypingVelocitySparklineProps) => {
-  const numericWidth = typeof width === 'number' ? width : DEFAULT_WIDTH;
-  const svgWidth = typeof width === 'number' ? width : '100%';
-  const { path, areaPath, points, maxVelocity, avgVelocity, currentVelocity, durationSeconds } = useMemo(() => {
+  const numericWidth = typeof width === "number" ? width : DEFAULT_WIDTH;
+  const svgWidth = typeof width === "number" ? width : "100%";
+  const {
+    path,
+    areaPath,
+    points,
+    maxVelocity,
+    avgVelocity,
+    currentVelocity,
+    durationSeconds,
+  } = useMemo(() => {
     try {
       const events = parseTelemetry(data);
       const series = buildVelocitySeries(events, bucketMs);
       const mappedPoints = mapToPoints(series, numericWidth, height);
-      const maxValue = series.length === 0 ? 0 : Math.max(...series.map((item) => item.velocity));
-      const avgValue = series.length === 0 ? 0 : series.reduce((sum, item) => sum + item.velocity, 0) / series.length;
-      const currentValue = series.length === 0 ? 0 : series[series.length - 1].velocity;
-      const duration = series.length > 1 ? (series[series.length - 1].time - series[0].time) / 1000 : 0;
+      const maxValue =
+        series.length === 0
+          ? 0
+          : Math.max(...series.map((item) => item.velocity));
+      const avgValue =
+        series.length === 0
+          ? 0
+          : series.reduce((sum, item) => sum + item.velocity, 0) /
+            series.length;
+      const currentValue =
+        series.length === 0 ? 0 : series[series.length - 1].velocity;
+      const duration =
+        series.length > 1
+          ? (series[series.length - 1].time - series[0].time) / 1000
+          : 0;
 
       // Ensure all computed values are finite
       return {
@@ -189,11 +220,11 @@ export const TypingVelocitySparkline = ({
         durationSeconds: Number.isFinite(duration) ? duration : 0,
       };
     } catch (error) {
-      console.error('[TypingVelocitySparkline] Computation error:', error);
+      console.error("[TypingVelocitySparkline] Computation error:", error);
       // Return safe fallback values
       return {
-        path: '',
-        areaPath: '',
+        path: "",
+        areaPath: "",
         points: [],
         maxVelocity: 0,
         avgVelocity: 0,
@@ -206,7 +237,7 @@ export const TypingVelocitySparkline = ({
   const hasData = points.length > 0;
 
   return (
-    <div className={cn('w-full', className)}>
+    <div className={cn("w-full", className)}>
       <svg
         width={svgWidth}
         height={height}
@@ -216,17 +247,35 @@ export const TypingVelocitySparkline = ({
         aria-label="Typing velocity over time sparkline"
       >
         <defs>
-          <linearGradient id="typingVelocityNeon" x1="0%" y1="0%" x2="100%" y2="0%">
+          <linearGradient
+            id="typingVelocityNeon"
+            x1="0%"
+            y1="0%"
+            x2="100%"
+            y2="0%"
+          >
             <stop offset="0%" stopColor="#0ea5e9" />
             <stop offset="45%" stopColor="#6366f1" />
             <stop offset="100%" stopColor="#7c3aed" />
           </linearGradient>
-          <linearGradient id="typingVelocityArea" x1="0%" y1="0%" x2="0%" y2="100%">
+          <linearGradient
+            id="typingVelocityArea"
+            x1="0%"
+            y1="0%"
+            x2="0%"
+            y2="100%"
+          >
             <stop offset="0%" stopColor="#0ea5e9" stopOpacity="0.24" />
             <stop offset="50%" stopColor="#6366f1" stopOpacity="0.14" />
             <stop offset="100%" stopColor="#7c3aed" stopOpacity="0.04" />
           </linearGradient>
-          <filter id="typingVelocityGlow" x="-20%" y="-50%" width="140%" height="200%">
+          <filter
+            id="typingVelocityGlow"
+            x="-20%"
+            y="-50%"
+            width="140%"
+            height="200%"
+          >
             <feGaussianBlur stdDeviation="2.6" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
@@ -234,19 +283,36 @@ export const TypingVelocitySparkline = ({
             </feMerge>
           </filter>
         </defs>
-        <rect x="0" y="0" width={numericWidth} height={height} fill="transparent" />
+        <rect
+          x="0"
+          y="0"
+          width={numericWidth}
+          height={height}
+          fill="transparent"
+        />
         <g opacity="0.4" stroke="#94a3b8" strokeWidth="1">
-          <line x1={PADDING} y1={height / 2} x2={numericWidth - PADDING} y2={height / 2} />
-          <line x1={PADDING} y1={PADDING} x2={numericWidth - PADDING} y2={PADDING} />
-          <line x1={PADDING} y1={height - PADDING} x2={numericWidth - PADDING} y2={height - PADDING} />
+          <line
+            x1={PADDING}
+            y1={height / 2}
+            x2={numericWidth - PADDING}
+            y2={height / 2}
+          />
+          <line
+            x1={PADDING}
+            y1={PADDING}
+            x2={numericWidth - PADDING}
+            y2={PADDING}
+          />
+          <line
+            x1={PADDING}
+            y1={height - PADDING}
+            x2={numericWidth - PADDING}
+            y2={height - PADDING}
+          />
         </g>
         {hasData ? (
           <>
-            <path
-              d={areaPath}
-              fill="url(#typingVelocityArea)"
-              opacity="0.8"
-            />
+            <path d={areaPath} fill="url(#typingVelocityArea)" opacity="0.8" />
             <path
               d={path}
               stroke="#0ea5e9"
@@ -294,19 +360,40 @@ export const TypingVelocitySparkline = ({
         <div className="mt-3 flex flex-wrap items-center justify-between gap-y-2 text-[10px] uppercase tracking-[0.15em] font-mono">
           <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
             <div className="whitespace-nowrap">
-              <span className="text-sky-700/60 dark:text-sky-300/60">Peak </span>
-              <span className="text-sky-700 font-semibold dark:text-sky-300">{maxVelocity.toFixed(1)}</span>
-              <span className="text-sky-700/60 dark:text-sky-300/60"> keys/s</span>
+              <span className="text-sky-700/60 dark:text-sky-300/60">
+                Peak{" "}
+              </span>
+              <span className="text-sky-700 font-semibold dark:text-sky-300">
+                {maxVelocity.toFixed(1)}
+              </span>
+              <span className="text-sky-700/60 dark:text-sky-300/60">
+                {" "}
+                keys/s
+              </span>
             </div>
             <div className="whitespace-nowrap">
-              <span className="text-indigo-700/60 dark:text-indigo-300/60">Avg </span>
-              <span className="text-indigo-700 font-semibold dark:text-indigo-300">{avgVelocity.toFixed(1)}</span>
-              <span className="text-indigo-700/60 dark:text-indigo-300/60"> keys/s</span>
+              <span className="text-indigo-700/60 dark:text-indigo-300/60">
+                Avg{" "}
+              </span>
+              <span className="text-indigo-700 font-semibold dark:text-indigo-300">
+                {avgVelocity.toFixed(1)}
+              </span>
+              <span className="text-indigo-700/60 dark:text-indigo-300/60">
+                {" "}
+                keys/s
+              </span>
             </div>
             <div className="whitespace-nowrap">
-              <span className="text-violet-700/60 dark:text-violet-300/60">Current </span>
-              <span className="text-violet-700 font-semibold dark:text-violet-300">{currentVelocity.toFixed(1)}</span>
-              <span className="text-violet-700/60 dark:text-violet-300/60"> keys/s</span>
+              <span className="text-violet-700/60 dark:text-violet-300/60">
+                Current{" "}
+              </span>
+              <span className="text-violet-700 font-semibold dark:text-violet-300">
+                {currentVelocity.toFixed(1)}
+              </span>
+              <span className="text-violet-700/60 dark:text-violet-300/60">
+                {" "}
+                keys/s
+              </span>
             </div>
           </div>
           {durationSeconds > 0 && (
