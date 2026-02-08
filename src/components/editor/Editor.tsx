@@ -27,6 +27,9 @@ export interface EditorSessionSnapshot {
   text: string;
   events: TelemetryEvent[];
   validationStatus: ValidationStatus;
+  riskScore: number | null;
+  confidence: number | null;
+  sessionId: string | null;
 }
 
 interface EditorProps {
@@ -35,8 +38,17 @@ interface EditorProps {
 }
 
 const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
-  const { trackKeystroke, trackPaste, updateValidation, validationResult, getUiEvents, isWarming } =
-    useMindprintTelemetry({ sessionId });
+  const {
+    trackKeystroke,
+    trackPaste,
+    trackContentMutation,
+    updateValidation,
+    validationResult,
+    getUiEvents,
+    isWarming,
+    sessionId: activeSessionId,
+    telemetryReady,
+  } = useMindprintTelemetry();
   const [sparklineData, setSparklineData] = useState<TelemetryEvent[]>(() => getUiEvents());
 
   const emitSessionSnapshot = useCallback(
@@ -46,9 +58,12 @@ const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
         text,
         events: getUiEvents(),
         validationStatus: validationResult.status,
+        riskScore: validationResult.metrics?.riskScore ?? null,
+        confidence: validationResult.metrics?.confidence ?? null,
+        sessionId: activeSessionId || sessionId || null,
       });
     },
-    [getUiEvents, onSessionChange, validationResult.status]
+    [activeSessionId, getUiEvents, onSessionChange, sessionId, validationResult.metrics?.confidence, validationResult.metrics?.riskScore, validationResult.status]
   );
 
   useEffect(() => {
@@ -71,8 +86,10 @@ const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
     ],
     content: '',
     onUpdate: ({ editor }) => {
+      const text = editor.getText();
+      trackContentMutation(text);
       updateValidation(editor.storage.characterCount.characters());
-      emitSessionSnapshot(editor.getText());
+      emitSessionSnapshot(text);
     },
     editorProps: {
       attributes: {
@@ -117,6 +134,11 @@ const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
           {validationResult.status !== 'VERIFIED_HUMAN' && (
             <span className="block opacity-75 text-[10px] whitespace-pre-wrap max-w-[200px]">
               {isWarming ? 'Warming up…' : validationResult.reason}
+            </span>
+          )}
+          {!telemetryReady && (
+            <span className="block opacity-75 text-[10px] whitespace-pre-wrap max-w-[200px]">
+              Initializing trusted telemetry session...
             </span>
           )}
         </div>

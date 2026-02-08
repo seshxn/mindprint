@@ -1,4 +1,26 @@
-import { TelemetryEvent } from '@/types/telemetry';
+import { TelemetryEvent, TextOperationType } from '@/types/telemetry';
+
+export interface ReplayOperation {
+  type: 'operation';
+  timestamp: number;
+  op: TextOperationType;
+  from: number;
+  to: number;
+  text: string;
+}
+
+export interface CertificateProof {
+  version: 'v1';
+  artifactSha256: string;
+  telemetryDigestSha256: string;
+  issuedAt: string;
+  validationStatus: string | null;
+  riskScore: number | null;
+  confidence: number | null;
+  signature: string;
+  logEntryHash: string | null;
+  prevLogEntryHash: string | null;
+}
 
 export interface CertificatePayload {
   id: string;
@@ -9,11 +31,14 @@ export interface CertificatePayload {
   issuedAt: string;
   sparkline: number[];
   seed: string;
+  replay: ReplayOperation[];
+  proof: CertificateProof | null;
 }
 
 const DEFAULT_SPARKLINE = [2, 4, 3, 5, 7, 6, 8, 5, 4, 6, 3, 2];
 const MAX_TEXT_LENGTH = 420;
 const MAX_POINTS = 48;
+const MAX_REPLAY_EVENTS = 4000;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -65,6 +90,64 @@ const parseEvents = (raw: string | null) => {
   }
 
   return [];
+};
+
+const parseReplay = (raw: string | null): ReplayOperation[] => {
+  if (!raw) return [];
+  const decoded = decodeParam(raw);
+  try {
+    const parsed = JSON.parse(decoded);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((event): event is ReplayOperation => {
+        if (!event || typeof event !== 'object') return false;
+        const candidate = event as ReplayOperation;
+        return (
+          Number.isFinite(candidate.timestamp) &&
+          (candidate.type === 'operation' || typeof (candidate as { type?: string }).type === 'undefined') &&
+          (candidate.op === 'insert' || candidate.op === 'delete' || candidate.op === 'replace') &&
+          Number.isInteger(candidate.from) &&
+          Number.isInteger(candidate.to) &&
+          typeof candidate.text === 'string'
+        );
+      })
+      .map((event) => ({
+        type: 'operation' as const,
+        timestamp: event.timestamp,
+        op: event.op,
+        from: event.from,
+        to: event.to,
+        text: event.text,
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .slice(0, MAX_REPLAY_EVENTS);
+  } catch {
+    return [];
+  }
+};
+
+export const buildReplayFromTelemetry = (events: TelemetryEvent[]) => {
+  const operations = events
+    .filter((event): event is Extract<TelemetryEvent, { type: 'operation' }> => event.type === 'operation')
+    .filter(
+      (event) =>
+        Number.isFinite(event.timestamp) &&
+        Number.isInteger(event.from) &&
+        Number.isInteger(event.to) &&
+        event.from >= 0 &&
+        event.to >= event.from
+    )
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .slice(0, MAX_REPLAY_EVENTS);
+
+  return operations.map((event) => ({
+    type: 'operation' as const,
+    timestamp: event.timestamp,
+    op: event.op,
+    from: event.from,
+    to: event.to,
+    text: event.text.slice(0, 1000),
+  }));
 };
 
 export const buildSparklineFromTelemetry = (events: TelemetryEvent[]) => {
@@ -151,6 +234,7 @@ export const parseCertificatePayload = (
   const text = decodeParam(params.get('text')).slice(0, MAX_TEXT_LENGTH);
   const sparkFromParam = parseSparkline(params.get('spark'));
   const sparkFromEvents = buildSparklineFromTelemetry(parseEvents(params.get('events')));
+  const replay = parseReplay(params.get('replay'));
 
   return {
     id,
@@ -161,6 +245,8 @@ export const parseCertificatePayload = (
     issuedAt: parseIssuedAt(params.get('issuedAt')),
     sparkline: normalizeSparkline(sparkFromParam.length > 0 ? sparkFromParam : sparkFromEvents),
     seed: decodeParam(params.get('seed')) || id,
+    replay,
+    proof: null,
   };
 };
 
@@ -179,6 +265,9 @@ export const buildCertificateSearchParams = (
   params.set('issuedAt', payload.issuedAt);
   params.set('seed', payload.seed);
   params.set('spark', payload.sparkline.map((point) => point.toFixed(2)).join(','));
+  if (payload.replay.length > 0) {
+    params.set('replay', JSON.stringify(payload.replay));
+  }
   return params;
 };
 

@@ -1,188 +1,250 @@
-import { TelemetryEvent, KeystrokeAction } from '@/types/telemetry';
+import { TelemetryEvent, KeystrokeAction, TextOperationType } from '@/types/telemetry';
 
-export type { TelemetryEvent, KeystrokeAction };
+export type { TelemetryEvent, KeystrokeAction, TextOperationType };
 
 export interface SessionTelemetry {
-    events: TelemetryEvent[];
+  events: TelemetryEvent[];
 }
 
 export type ValidationStatus = 'VERIFIED_HUMAN' | 'SUSPICIOUS' | 'LOW_EFFORT' | 'INSUFFICIENT_DATA';
 
 export type ValidationResult = {
-    status: ValidationStatus;
-    reason?: string;
-    metrics?: {
-        pasteRatio: number;
-        cv?: number;
-        netContentLength: number;
-    };
+  status: ValidationStatus;
+  reason?: string;
+  metrics?: {
+    pasteRatio: number;
+    cv?: number;
+    netContentLength: number;
+    riskScore: number;
+    confidence: number;
+    correctionRatio: number;
+    pauseRatePerMin: number;
+  };
 };
 
-// Constants
-const PASTE_RATIO_THRESHOLD = 0.8;
-const MIN_TYPED_EVENTS_FOR_ANALYSIS = 10;
-const MIN_TYPING_INTERVALS = 5;
-const MAX_VALID_INTERVAL_MS = 2000;
-const MIN_STD_DEV_MS = 15;
-const MAX_EVENTS_HISTORY = 10000;
-const EVENTS_TRIM_TARGET = 9500;
-const LOW_CV_THRESHOLD = 0.2;
-const LOW_CV_MEAN_THRESHOLD = 150;
+const MIN_TYPED_EVENTS_FOR_ANALYSIS = 12;
+const MIN_TYPING_INTERVALS = 6;
+const MAX_VALID_INTERVAL_MS = 6000;
+const LONG_PAUSE_MS = 2000;
+const LOW_VARIANCE_SD_MS = 12;
+const MAX_EVENTS_HISTORY = 12000;
+const EVENTS_TRIM_TARGET = 10000;
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+
+const sampleStdDev = (values: number[]) => {
+  if (values.length < 2) return 0;
+  const avg = mean(values);
+  const variance = values.reduce((sum, value) => sum + Math.pow(value - avg, 2), 0) / (values.length - 1);
+  return Math.sqrt(variance);
+};
+
+const percentile = (sortedValues: number[], p: number) => {
+  if (sortedValues.length === 0) return 0;
+  const index = clamp((sortedValues.length - 1) * p, 0, sortedValues.length - 1);
+  const low = Math.floor(index);
+  const high = Math.ceil(index);
+  if (low === high) return sortedValues[low];
+  const weight = index - low;
+  return sortedValues[low] * (1 - weight) + sortedValues[high] * weight;
+};
 
 export class TelemetryTracker {
-    private events: TelemetryEvent[] = [];
+  private events: TelemetryEvent[] = [];
 
-    public recordKeystroke(action: KeystrokeAction, key: string) {
-        this.events.push({
-            type: 'keystroke',
-            timestamp: performance.now(),
-            action,
-            key
-        });
-        this.enforceLimit();
-    }
+  public recordKeystroke(action: KeystrokeAction, key: string) {
+    this.events.push({
+      type: 'keystroke',
+      timestamp: performance.now(),
+      action,
+      key,
+    });
+    this.enforceLimit();
+  }
 
-    public recordPaste(length: number, source: string = 'clipboard') {
-        this.events.push({
-            type: 'paste',
-            timestamp: performance.now(),
-            length,
-            source
-        });
-        this.enforceLimit();
-    }
+  public recordPaste(length: number, source: string = 'clipboard') {
+    this.events.push({
+      type: 'paste',
+      timestamp: performance.now(),
+      length,
+      source,
+    });
+    this.enforceLimit();
+  }
 
-    private enforceLimit() {
-        if (this.events.length > MAX_EVENTS_HISTORY) {
-            // Trim in chunks to avoid O(n) work on every new event after crossing the cap.
-            this.events.splice(0, this.events.length - EVENTS_TRIM_TARGET);
-        }
-    }
+  public recordOperation(op: TextOperationType, from: number, to: number, text: string) {
+    this.events.push({
+      type: 'operation',
+      timestamp: performance.now(),
+      op,
+      from,
+      to,
+      text,
+    });
+    this.enforceLimit();
+  }
 
-    public getEvents(): TelemetryEvent[] {
-        return [...this.events];
+  private enforceLimit() {
+    if (this.events.length > MAX_EVENTS_HISTORY) {
+      this.events.splice(0, this.events.length - EVENTS_TRIM_TARGET);
     }
+  }
 
-    public clear() {
-        this.events = [];
-    }
+  public getEvents(): TelemetryEvent[] {
+    return [...this.events];
+  }
+
+  public clear() {
+    this.events = [];
+  }
 }
 
+const deriveConfidence = (typedChars: number, typingIntervals: number[]) => {
+  const typedComponent = clamp(typedChars / 80, 0, 1);
+  const intervalComponent = clamp(typingIntervals.length / 120, 0, 1);
+  return Number((typedComponent * 0.6 + intervalComponent * 0.4).toFixed(2));
+};
 
-export const validateSession = (
-    events: TelemetryEvent[],
-    currentContentLength: number
-): ValidationResult => {
-    // 1. Check for Insufficient Data
-    // If we have content but no events, it's suspicious/unknown (preloaded, hydration, or avoided instrumentation).
-    if (events.length === 0) {
-        return {
-            status: 'INSUFFICIENT_DATA',
-            reason: 'No telemetry recorded for session.',
-            metrics: { pasteRatio: 0, netContentLength: currentContentLength }
-        };
-    }
-
-    // Calculate produced character metrics
-    const pasteEvents = events.filter(e => e.type === 'paste') as Extract<TelemetryEvent, { type: 'paste' }>[];
-    const pastedChars = pasteEvents.reduce((acc, e) => acc + e.length, 0);
-
-    const keystrokeEvents = events.filter(e => e.type === 'keystroke') as Extract<TelemetryEvent, { type: 'keystroke' }>[];
-    const typedCharEvents = keystrokeEvents.filter(e => e.action === 'char');
-    const typedChars = typedCharEvents.length;
-
-    const totalProduced = pastedChars + typedChars;
-
-    // Guard against divide by zero if user only did nav keys
-    if (totalProduced === 0) {
-        return {
-            status: 'INSUFFICIENT_DATA',
-            reason: 'No content production actions recorded.',
-            metrics: { pasteRatio: 0, netContentLength: currentContentLength }
-        };
-    }
-
-    // 2. Paste Ratio Validation
-    // Ratio = Pasted / (Pasted + Typed)
-    const pasteRatio = pastedChars / totalProduced;
-
-    if (pasteRatio > PASTE_RATIO_THRESHOLD) {
-        // Check if deletions compensate? 
-        // If I paste 1000 and type 5, ratio is high.
-        // If I paste 1000 and delete 900, type 5, ratio is still high relative to *production* method.
-        // This aligns with "Low Effort" creation.
-        return {
-            status: 'LOW_EFFORT',
-            reason: `High paste ratio (${(pasteRatio * 100).toFixed(1)}%)`,
-            metrics: { pasteRatio, netContentLength: currentContentLength }
-        };
-    }
-
-    // 3. Typing Variance (Coefficient of Variation)
-    // Only analyze if we have enough keystrokes to be statistically meaningful
-    if (typedCharEvents.length < MIN_TYPED_EVENTS_FOR_ANALYSIS) {
-        // Not enough typing to fingerprint, but if paste ratio is low, we might loosely accept or stay insufficient.
-        // Let's be conservative:
-        return {
-            status: 'INSUFFICIENT_DATA',
-            reason: 'Not enough typing data to verify human rhythm.',
-            metrics: { pasteRatio, netContentLength: currentContentLength }
-        };
-    }
-
-    const intervals: number[] = [];
-    // Use typedCharEvents for rhythm (ignore nav/deletes for rhythm calculation to avoid noise? 
-    // actually deletes are part of rhythm, but let's stick to 'char' for pure typing speed analysis or use all keystrokes)
-    // Let's use all keystrokes for rhythm as navigation/deletion is part of human flow.
-    for (let i = 1; i < keystrokeEvents.length; i++) {
-        intervals.push(keystrokeEvents[i].timestamp - keystrokeEvents[i - 1].timestamp);
-    }
-
-    // Filter valid typing intervals (exclude massive pauses > 2s which are "thinking" time)
-    const typingIntervals = intervals.filter(i => i < MAX_VALID_INTERVAL_MS);
-
-    if (typingIntervals.length < MIN_TYPING_INTERVALS) {
-        return {
-            status: 'INSUFFICIENT_DATA',
-            reason: 'Not enough valid typing intervals for analysis.',
-            metrics: { pasteRatio, netContentLength: currentContentLength }
-        };
-    }
-
-    const mean = typingIntervals.reduce((a, b) => a + b, 0) / typingIntervals.length;
-    const variance = typingIntervals.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / (typingIntervals.length - 1);
-    const stdDev = Math.sqrt(variance);
-
-    // Coefficient of Variation (CV) = s / mu
-    // Humans are noisy. Robots are precise.
-    // CV < 0.15 is extremely regular (likely robotic or highly skilled repetitive macro).
-    const cv = mean > 0 ? stdDev / mean : 0;
-
-    // 4. Regularity Check (Duplicate Intervals)
-    // If many intervals are EXACTLY the same (e.g. 50.0ms), it's a bot.
-    // Floating point jitter might exist, but usually scripts are cleaner than humans.
-    // (Optional simple check)
-
-    if (cv < LOW_CV_THRESHOLD && mean < LOW_CV_MEAN_THRESHOLD) {
-        // Very fast and very regular.
-        return {
-            status: 'SUSPICIOUS',
-            reason: `Typing too regular (CV: ${cv.toFixed(2)})`,
-            metrics: { pasteRatio, cv, netContentLength: currentContentLength }
-        };
-    }
-
-    // Additional Bot Check: extremely low variance absolute
-    if (stdDev < MIN_STD_DEV_MS) {
-        return {
-            status: 'SUSPICIOUS',
-            reason: `Typing variance unnaturally low (SD: ${stdDev.toFixed(1)}ms)`,
-            metrics: { pasteRatio, cv, netContentLength: currentContentLength }
-        };
-    }
-
+export const validateSession = (events: TelemetryEvent[], currentContentLength: number): ValidationResult => {
+  if (events.length === 0) {
     return {
-        status: 'VERIFIED_HUMAN',
-        metrics: { pasteRatio, cv, netContentLength: currentContentLength }
+      status: 'INSUFFICIENT_DATA',
+      reason: 'No telemetry recorded for session.',
+      metrics: {
+        pasteRatio: 0,
+        netContentLength: currentContentLength,
+        riskScore: 50,
+        confidence: 0,
+        correctionRatio: 0,
+        pauseRatePerMin: 0,
+      },
     };
+  }
+
+  const pasteEvents = events.filter((event) => event.type === 'paste') as Extract<TelemetryEvent, { type: 'paste' }>[];
+  const pastedChars = pasteEvents.reduce((acc, event) => acc + event.length, 0);
+
+  const keystrokeEvents = events.filter((event) => event.type === 'keystroke') as Extract<
+    TelemetryEvent,
+    { type: 'keystroke' }
+  >[];
+  const typedCharEvents = keystrokeEvents.filter((event) => event.action === 'char');
+  const typedChars = typedCharEvents.length;
+  const deleteCount = keystrokeEvents.filter((event) => event.action === 'delete').length;
+  const totalProduced = pastedChars + typedChars;
+
+  if (totalProduced === 0) {
+    return {
+      status: 'INSUFFICIENT_DATA',
+      reason: 'No content production actions recorded.',
+      metrics: {
+        pasteRatio: 0,
+        netContentLength: currentContentLength,
+        riskScore: 50,
+        confidence: 0,
+        correctionRatio: 0,
+        pauseRatePerMin: 0,
+      },
+    };
+  }
+
+  const pasteRatio = pastedChars / totalProduced;
+  const correctionRatio = typedChars > 0 ? deleteCount / typedChars : 0;
+
+  const typingIntervals: number[] = [];
+  for (let i = 1; i < keystrokeEvents.length; i += 1) {
+    const diff = keystrokeEvents[i].timestamp - keystrokeEvents[i - 1].timestamp;
+    if (Number.isFinite(diff) && diff > 0 && diff <= MAX_VALID_INTERVAL_MS) {
+      typingIntervals.push(diff);
+    }
+  }
+
+  const confidence = deriveConfidence(typedChars, typingIntervals);
+  if (typedChars < MIN_TYPED_EVENTS_FOR_ANALYSIS || typingIntervals.length < MIN_TYPING_INTERVALS || confidence < 0.25) {
+    return {
+      status: 'INSUFFICIENT_DATA',
+      reason: 'Collecting more behavioral data.',
+      metrics: {
+        pasteRatio,
+        netContentLength: currentContentLength,
+        riskScore: Math.round(50 + pasteRatio * 30),
+        confidence,
+        correctionRatio: Number(correctionRatio.toFixed(3)),
+        pauseRatePerMin: 0,
+      },
+    };
+  }
+
+  const avgInterval = mean(typingIntervals);
+  const stdDev = sampleStdDev(typingIntervals);
+  const cv = avgInterval > 0 ? stdDev / avgInterval : 0;
+  const sortedIntervals = [...typingIntervals].sort((a, b) => a - b);
+  const p50 = percentile(sortedIntervals, 0.5);
+  const p95 = percentile(sortedIntervals, 0.95);
+  const burstiness = p50 > 0 ? p95 / p50 : 1;
+  const pauses = typingIntervals.filter((value) => value >= LONG_PAUSE_MS).length;
+  const durationMs =
+    keystrokeEvents.length > 1 ? keystrokeEvents[keystrokeEvents.length - 1].timestamp - keystrokeEvents[0].timestamp : 0;
+  const durationMinutes = durationMs > 0 ? durationMs / 60000 : 1;
+  const pauseRatePerMin = pauses / durationMinutes;
+
+  const pasteRisk = clamp((pasteRatio - 0.18) / 0.62, 0, 1);
+  const regularityRisk = clamp((0.22 - cv) / 0.22, 0, 1);
+  const varianceRisk = stdDev < LOW_VARIANCE_SD_MS ? 1 : 0;
+  const burstRisk = clamp((burstiness - 4) / 8, 0, 1);
+  const lowRevisionRisk = clamp((0.015 - correctionRatio) / 0.015, 0, 1);
+
+  const baseRisk =
+    pasteRisk * 0.4 + regularityRisk * 0.24 + varianceRisk * 0.18 + burstRisk * 0.1 + lowRevisionRisk * 0.08;
+  const uncertaintyPenalty = (1 - confidence) * 0.18;
+  const risk = clamp(baseRisk + uncertaintyPenalty, 0, 1);
+  const riskScore = Math.round(risk * 100);
+
+  if (pasteRatio >= 0.85 && typedChars < 24) {
+    return {
+      status: 'LOW_EFFORT',
+      reason: `High external text injection (${(pasteRatio * 100).toFixed(1)}% pasted).`,
+      metrics: {
+        pasteRatio,
+        cv: Number(cv.toFixed(3)),
+        netContentLength: currentContentLength,
+        riskScore,
+        confidence,
+        correctionRatio: Number(correctionRatio.toFixed(3)),
+        pauseRatePerMin: Number(pauseRatePerMin.toFixed(2)),
+      },
+    };
+  }
+
+  if (risk >= 0.64) {
+    return {
+      status: 'SUSPICIOUS',
+      reason: `Anomalous rhythm profile (risk ${riskScore}/100).`,
+      metrics: {
+        pasteRatio,
+        cv: Number(cv.toFixed(3)),
+        netContentLength: currentContentLength,
+        riskScore,
+        confidence,
+        correctionRatio: Number(correctionRatio.toFixed(3)),
+        pauseRatePerMin: Number(pauseRatePerMin.toFixed(2)),
+      },
+    };
+  }
+
+  return {
+    status: 'VERIFIED_HUMAN',
+    reason: `Human-like rhythm profile (confidence ${Math.round(confidence * 100)}%).`,
+    metrics: {
+      pasteRatio,
+      cv: Number(cv.toFixed(3)),
+      netContentLength: currentContentLength,
+      riskScore,
+      confidence,
+      correctionRatio: Number(correctionRatio.toFixed(3)),
+      pauseRatePerMin: Number(pauseRatePerMin.toFixed(2)),
+    },
+  };
 };

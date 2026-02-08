@@ -2,11 +2,9 @@ import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import QRCode from 'qrcode';
 import {
-  buildCertificateSearchParams,
   getCyberpunkPalette,
-  parseCertificatePayload,
 } from '@/lib/certificate';
-import { getCertificateRecord } from '@/lib/certificate-store';
+import { getCertificateRecord, verifyCertificatePayload } from '@/lib/certificate-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,19 +29,37 @@ const toSparkBars = (values: number[]) => {
   return source.map((v) => Math.max(8, Math.round((v / max) * 90)));
 };
 
+const safeGetCertificateRecord = async (id: string) => {
+  try {
+    return await getCertificateRecord(id);
+  } catch (error) {
+    console.error('[api/og] Failed to load certificate record from database:', error);
+    return null;
+  }
+};
+
 export const GET = async (request: NextRequest) => {
   try {
     const url = new URL(request.url);
     const id = (url.searchParams.get('id') || '').trim();
-    const dbPayload = id ? await getCertificateRecord(id) : null;
-    const payload = dbPayload ?? parseCertificatePayload(url.searchParams);
+    if (!id) {
+      throw new Error('Missing certificate id for trusted OG rendering.');
+    }
+
+    const payload = await safeGetCertificateRecord(id);
+    if (!payload) {
+      throw new Error('Certificate not found in trusted store.');
+    }
+
+    const verification = await verifyCertificatePayload(payload);
+    if (!verification.isValid) {
+      throw new Error(`Certificate verification failed: ${verification.reason || 'invalid proof.'}`);
+    }
+
     const palette = getCyberpunkPalette(payload.seed);
 
     const origin = url.searchParams.get('origin') || url.origin || 'https://mindprint.app';
-    const verifyParams = buildCertificateSearchParams(payload, false);
-    const verifyUrl = dbPayload
-      ? `${origin}/verify/${encodeURIComponent(payload.id)}`
-      : `${origin}/verify/${encodeURIComponent(payload.id)}?${verifyParams.toString()}`;
+    const verifyUrl = `${origin}/verify/${encodeURIComponent(payload.id)}`;
     const verifyHint = `${origin}/verify/${payload.id}`;
 
     const qrCodeDataUrl = await QRCode.toDataURL(verifyUrl, {

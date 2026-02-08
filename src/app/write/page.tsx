@@ -5,23 +5,32 @@ import Editor, { EditorSessionSnapshot } from '@/components/editor/Editor';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { buildSparklineFromTelemetry } from '@/lib/certificate';
+import { buildReplayFromTelemetry, buildSparklineFromTelemetry } from '@/lib/certificate';
 import { ValidationStatus } from '@/lib/telemetry';
 import { createCertificate } from '@/app/actions/certificate';
 import { AnimatedGridPattern } from '@/components/magicui/animated-grid-pattern';
 import { AnimatedThemeToggler } from '@/components/magicui/animated-theme-toggler';
+import { AnalysisResult } from '@/components/AnalysisResult';
 
-const scoreFromStatus = (status: ValidationStatus, hasText: boolean) => {
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const scoreFromSnapshot = (snapshot: EditorSessionSnapshot, hasText: boolean) => {
   if (!hasText) return 0;
-  switch (status) {
+  const risk = snapshot.riskScore ?? 50;
+  const confidence = snapshot.confidence ?? 0.3;
+  const base = 100 - risk;
+  const uncertaintyPenalty = (1 - confidence) * 20;
+  const calibrated = Math.round(clamp(base - uncertaintyPenalty, 1, 99));
+
+  switch (snapshot.validationStatus) {
     case 'VERIFIED_HUMAN':
-      return 93;
+      return clamp(Math.max(calibrated, 68), 0, 99);
     case 'SUSPICIOUS':
-      return 34;
+      return clamp(Math.min(calibrated, 45), 0, 99);
     case 'LOW_EFFORT':
-      return 24;
+      return clamp(Math.min(calibrated, 28), 0, 99);
     default:
-      return 61;
+      return clamp(calibrated, 0, 99);
   }
 };
 
@@ -41,20 +50,73 @@ const subtitleFromStatus = (status: ValidationStatus) => {
 const WritePage = () => {
   const router = useRouter();
   const [isFinishing, setIsFinishing] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [analysisText, setAnalysisText] = useState('');
+  const [error, setError] = useState<string | null>(null);
   const [sessionSnapshot, setSessionSnapshot] = useState<EditorSessionSnapshot>({
     text: '',
     events: [],
     validationStatus: 'INSUFFICIENT_DATA',
+    riskScore: null,
+    confidence: null,
+    sessionId: null,
   });
   const hasText = useMemo(() => sessionSnapshot.text.trim().length > 0, [sessionSnapshot.text]);
 
+  const handleAnalyzeSession = async () => {
+    if (!hasText || isAnalyzing) return;
+    setIsAnalyzing(true);
+    setError(null);
+
+    try {
+      const response = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ log: sessionSnapshot.events, sessionId: sessionSnapshot.sessionId }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload.error || 'Analysis request failed.');
+      }
+
+      const eventDescriptions = Array.isArray(payload.events)
+        ? payload.events.slice(0, 4).map((event: { type?: string; description?: string }) => `- ${event.type || 'signal'}: ${event.description || 'n/a'}`)
+        : [];
+
+      const sections = [
+        `Cognitive Effort: ${payload.cognitive_effort ?? 'n/a'}/100`,
+        `Human Likelihood: ${payload.human_likelihood ?? 'n/a'}/100`,
+        '',
+        `${payload.analysis_summary || 'No summary returned.'}`,
+      ];
+      if (eventDescriptions.length > 0) {
+        sections.push('', 'Detected behavioral events:', ...eventDescriptions);
+      }
+
+      setAnalysisText(sections.join('\n'));
+      setAnalysisOpen(true);
+    } catch (analysisError) {
+      console.error('Failed to analyze session:', analysisError);
+      setError('Analysis failed. Check model/API configuration and retry.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   const handleFinishSession = async () => {
     if (!hasText || isFinishing) return;
+    if (!sessionSnapshot.sessionId) {
+      setError('Trusted telemetry session is still initializing. Please wait a moment and retry.');
+      return;
+    }
 
     setIsFinishing(true);
+    setError(null);
     const certificateText = sessionSnapshot.text.trim().slice(0, 420);
-    const score = scoreFromStatus(sessionSnapshot.validationStatus, hasText);
+    const score = scoreFromSnapshot(sessionSnapshot, hasText);
     const sparkline = buildSparklineFromTelemetry(sessionSnapshot.events);
+    const replay = buildReplayFromTelemetry(sessionSnapshot.events);
     const issuedAt = new Date().toISOString();
 
     try {
@@ -66,25 +128,16 @@ const WritePage = () => {
         issuedAt,
         seed: `seed-${Date.now().toString(36)}`,
         sparkline,
+        replay,
         validationStatus: sessionSnapshot.validationStatus,
+        riskScore: sessionSnapshot.riskScore ?? undefined,
+        confidence: sessionSnapshot.confidence ?? undefined,
       });
 
       router.push(`/verify/${encodeURIComponent(id)}`);
     } catch (error) {
       console.error('Failed to create certificate record:', error);
-      const fallbackId = `mp-${Date.now().toString(36)}`;
-      const params = new URLSearchParams();
-      params.set('score', String(score));
-      params.set('text', certificateText);
-      params.set('title', 'Mindprint Human Origin Certificate');
-      params.set('subtitle', subtitleFromStatus(sessionSnapshot.validationStatus));
-      params.set('issuedAt', issuedAt);
-      params.set('seed', fallbackId);
-      if (sparkline.length > 0) {
-        params.set('spark', sparkline.map((point) => point.toFixed(2)).join(','));
-      }
-
-      router.push(`/verify/${encodeURIComponent(fallbackId)}?${params.toString()}`);
+      setError('Could not issue a trusted certificate. Please retry once telemetry/database are available.');
     } finally {
       setIsFinishing(false);
     }
@@ -111,6 +164,13 @@ const WritePage = () => {
           </div>
           <div className="flex items-center gap-2">
             <button
+              onClick={handleAnalyzeSession}
+              disabled={!hasText || isAnalyzing}
+              className="rounded-full border border-slate-300/70 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-55 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
+            >
+              {isAnalyzing ? 'Analyzing...' : 'Analyze Session'}
+            </button>
+            <button
               onClick={handleFinishSession}
               disabled={!hasText || isFinishing}
               className="rounded-full border border-sky-300/50 bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(14,165,233,0.35)] transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-55"
@@ -129,10 +189,14 @@ const WritePage = () => {
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
               Write naturally. We capture process signals and issue a certificate when you finish.
             </p>
+            {error && (
+              <p className="mt-2 text-sm text-rose-600 dark:text-rose-300">{error}</p>
+            )}
           </div>
           <Editor onSessionChange={setSessionSnapshot} />
         </section>
       </main>
+      <AnalysisResult isOpen={analysisOpen} onClose={() => setAnalysisOpen(false)} analysis={analysisText} />
     </div>
   );
 };
