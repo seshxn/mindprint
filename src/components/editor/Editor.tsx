@@ -1,25 +1,25 @@
-'use client';
+"use client";
 
-import { useEditor, EditorContent } from '@tiptap/react';
-import { useState, useEffect, useCallback } from 'react';
-import StarterKit from '@tiptap/starter-kit';
-import Placeholder from '@tiptap/extension-placeholder';
-import CharacterCount from '@tiptap/extension-character-count';
-import { Toolbar } from './Toolbar';
-import { useMindprintTelemetry } from '@/hooks/useMindprintTelemetry';
-import { ValidationStatus } from '@/lib/telemetry';
-import { TelemetryEvent } from '@/types/telemetry';
-import TypingVelocitySparkline from '@/components/telemetry/TypingVelocitySparkline';
+import { useEditor, EditorContent } from "@tiptap/react";
+import { useState, useEffect, useCallback } from "react";
+import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
+import CharacterCount from "@tiptap/extension-character-count";
+import { Toolbar } from "./Toolbar";
+import { useMindprintTelemetry } from "@/hooks/useMindprintTelemetry";
+import { ValidationStatus } from "@/lib/telemetry";
+import { TelemetryEvent } from "@/types/telemetry";
+import TypingVelocitySparkline from "@/components/telemetry/TypingVelocitySparkline";
 
-const getStatusColor = (status: ValidationStatus = 'INSUFFICIENT_DATA') => {
+const getStatusColor = (status: ValidationStatus = "INSUFFICIENT_DATA") => {
   switch (status) {
-    case 'VERIFIED_HUMAN':
-      return 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/35';
-    case 'SUSPICIOUS':
-    case 'LOW_EFFORT':
-      return 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/35';
+    case "VERIFIED_HUMAN":
+      return "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/35";
+    case "SUSPICIOUS":
+    case "LOW_EFFORT":
+      return "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/35";
     default:
-      return 'bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/70 dark:text-slate-300 dark:border-slate-700';
+      return "bg-slate-50 text-slate-600 border-slate-200 dark:bg-slate-800/70 dark:text-slate-300 dark:border-slate-700";
   }
 };
 
@@ -49,7 +49,9 @@ const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
     sessionId: activeSessionId,
     telemetryReady,
   } = useMindprintTelemetry();
-  const [sparklineData, setSparklineData] = useState<TelemetryEvent[]>(() => getUiEvents());
+  const [sparklineData, setSparklineData] = useState<TelemetryEvent[]>(() =>
+    getUiEvents(),
+  );
 
   const emitSessionSnapshot = useCallback(
     (text: string) => {
@@ -63,7 +65,15 @@ const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
         sessionId: activeSessionId || sessionId || null,
       });
     },
-    [activeSessionId, getUiEvents, onSessionChange, sessionId, validationResult.metrics?.confidence, validationResult.metrics?.riskScore, validationResult.status]
+    [
+      activeSessionId,
+      getUiEvents,
+      onSessionChange,
+      sessionId,
+      validationResult.metrics?.confidence,
+      validationResult.metrics?.riskScore,
+      validationResult.status,
+    ],
   );
 
   useEffect(() => {
@@ -78,13 +88,13 @@ const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
     extensions: [
       StarterKit,
       Placeholder.configure({
-        placeholder: 'Start writing...',
+        placeholder: "Start writing...",
         emptyEditorClass:
-          'is-editor-empty before:content-[attr(data-placeholder)] before:text-slate-400 dark:before:text-slate-500 before:float-left before:h-0 pointer-events-none',
+          "is-editor-empty before:content-[attr(data-placeholder)] before:text-slate-400 dark:before:text-slate-500 before:float-left before:h-0 pointer-events-none",
       }),
       CharacterCount.configure(),
     ],
-    content: '',
+    content: "",
     onUpdate: ({ editor }) => {
       const text = editor.getText();
       trackContentMutation(text);
@@ -93,7 +103,8 @@ const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
     },
     editorProps: {
       attributes: {
-        class: 'prose prose-slate dark:prose-invert max-w-none focus:outline-none min-h-[46vh] text-lg leading-relaxed',
+        class:
+          "prose prose-slate dark:prose-invert max-w-none focus:outline-none min-h-[46vh] text-lg leading-relaxed",
       },
       handleKeyDown: (_, event) => {
         trackKeystroke(event);
@@ -129,11 +140,11 @@ const Editor = ({ sessionId, onSessionChange }: EditorProps) => {
             >
               i
             </span>
-            : {validationResult.status.replaceAll('_', ' ')}
+            : {validationResult.status.replaceAll("_", " ")}
           </span>
-          {validationResult.status !== 'VERIFIED_HUMAN' && (
+          {validationResult.status !== "VERIFIED_HUMAN" && (
             <span className="block opacity-75 text-[10px] whitespace-pre-wrap max-w-[200px]">
-              {isWarming ? 'Warming up…' : validationResult.reason}
+              {isWarming ? "Warming up…" : validationResult.reason}
             </span>
           )}
           {!telemetryReady && (

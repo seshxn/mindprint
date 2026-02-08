@@ -1,20 +1,27 @@
-'use client';
+"use client";
 
-import React, { useMemo, useState } from 'react';
-import Editor, { EditorSessionSnapshot } from '@/components/editor/Editor';
-import { ArrowLeft, Sparkles } from 'lucide-react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { buildReplayFromTelemetry, buildSparklineFromTelemetry } from '@/lib/certificate';
-import { ValidationStatus } from '@/lib/telemetry';
-import { createCertificate } from '@/app/actions/certificate';
-import { AnimatedGridPattern } from '@/components/magicui/animated-grid-pattern';
-import { AnimatedThemeToggler } from '@/components/magicui/animated-theme-toggler';
-import { AnalysisResult } from '@/components/AnalysisResult';
+import React, { useMemo, useState } from "react";
+import Editor, { EditorSessionSnapshot } from "@/components/editor/Editor";
+import { ArrowLeft, Sparkles } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  buildReplayFromTelemetry,
+  buildSparklineFromTelemetry,
+} from "@/lib/certificate";
+import { ValidationStatus } from "@/lib/telemetry";
+import { createCertificate } from "@/app/actions/certificate";
+import { AnimatedGridPattern } from "@/components/magicui/animated-grid-pattern";
+import { AnimatedThemeToggler } from "@/components/magicui/animated-theme-toggler";
+import { AnalysisResult } from "@/components/AnalysisResult";
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
 
-const scoreFromSnapshot = (snapshot: EditorSessionSnapshot, hasText: boolean) => {
+const scoreFromSnapshot = (
+  snapshot: EditorSessionSnapshot,
+  hasText: boolean,
+) => {
   if (!hasText) return 0;
   const risk = snapshot.riskScore ?? 50;
   const confidence = snapshot.confidence ?? 0.3;
@@ -23,11 +30,11 @@ const scoreFromSnapshot = (snapshot: EditorSessionSnapshot, hasText: boolean) =>
   const calibrated = Math.round(clamp(base - uncertaintyPenalty, 1, 99));
 
   switch (snapshot.validationStatus) {
-    case 'VERIFIED_HUMAN':
+    case "VERIFIED_HUMAN":
       return clamp(Math.max(calibrated, 68), 0, 99);
-    case 'SUSPICIOUS':
+    case "SUSPICIOUS":
       return clamp(Math.min(calibrated, 45), 0, 99);
-    case 'LOW_EFFORT':
+    case "LOW_EFFORT":
       return clamp(Math.min(calibrated, 28), 0, 99);
     default:
       return clamp(calibrated, 0, 99);
@@ -36,14 +43,14 @@ const scoreFromSnapshot = (snapshot: EditorSessionSnapshot, hasText: boolean) =>
 
 const subtitleFromStatus = (status: ValidationStatus) => {
   switch (status) {
-    case 'VERIFIED_HUMAN':
-      return 'Verified Human Writing Session';
-    case 'SUSPICIOUS':
-      return 'Flagged For Rhythm Irregularities';
-    case 'LOW_EFFORT':
-      return 'High Paste Ratio Detected';
+    case "VERIFIED_HUMAN":
+      return "Verified Human Writing Session";
+    case "SUSPICIOUS":
+      return "Flagged For Rhythm Irregularities";
+    case "LOW_EFFORT":
+      return "High Paste Ratio Detected";
     default:
-      return 'Session Captured With Limited Data';
+      return "Session Captured With Limited Data";
   }
 };
 
@@ -52,17 +59,22 @@ const WritePage = () => {
   const [isFinishing, setIsFinishing] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisOpen, setAnalysisOpen] = useState(false);
-  const [analysisText, setAnalysisText] = useState('');
+  const [analysisText, setAnalysisText] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [sessionSnapshot, setSessionSnapshot] = useState<EditorSessionSnapshot>({
-    text: '',
-    events: [],
-    validationStatus: 'INSUFFICIENT_DATA',
-    riskScore: null,
-    confidence: null,
-    sessionId: null,
-  });
-  const hasText = useMemo(() => sessionSnapshot.text.trim().length > 0, [sessionSnapshot.text]);
+  const [sessionSnapshot, setSessionSnapshot] = useState<EditorSessionSnapshot>(
+    {
+      text: "",
+      events: [],
+      validationStatus: "INSUFFICIENT_DATA",
+      riskScore: null,
+      confidence: null,
+      sessionId: null,
+    },
+  );
+  const hasText = useMemo(
+    () => sessionSnapshot.text.trim().length > 0,
+    [sessionSnapshot.text],
+  );
 
   const handleAnalyzeSession = async () => {
     if (!hasText || isAnalyzing) return;
@@ -70,35 +82,43 @@ const WritePage = () => {
     setError(null);
 
     try {
-      const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ log: sessionSnapshot.events, sessionId: sessionSnapshot.sessionId }),
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          log: sessionSnapshot.events,
+          sessionId: sessionSnapshot.sessionId,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload.error || 'Analysis request failed.');
+        throw new Error(payload.error || "Analysis request failed.");
       }
 
       const eventDescriptions = Array.isArray(payload.events)
-        ? payload.events.slice(0, 4).map((event: { type?: string; description?: string }) => `- ${event.type || 'signal'}: ${event.description || 'n/a'}`)
+        ? payload.events
+            .slice(0, 4)
+            .map(
+              (event: { type?: string; description?: string }) =>
+                `- ${event.type || "signal"}: ${event.description || "n/a"}`,
+            )
         : [];
 
       const sections = [
-        `Cognitive Effort: ${payload.cognitive_effort ?? 'n/a'}/100`,
-        `Human Likelihood: ${payload.human_likelihood ?? 'n/a'}/100`,
-        '',
-        `${payload.analysis_summary || 'No summary returned.'}`,
+        `Cognitive Effort: ${payload.cognitive_effort ?? "n/a"}/100`,
+        `Human Likelihood: ${payload.human_likelihood ?? "n/a"}/100`,
+        "",
+        `${payload.analysis_summary || "No summary returned."}`,
       ];
       if (eventDescriptions.length > 0) {
-        sections.push('', 'Detected behavioral events:', ...eventDescriptions);
+        sections.push("", "Detected behavioral events:", ...eventDescriptions);
       }
 
-      setAnalysisText(sections.join('\n'));
+      setAnalysisText(sections.join("\n"));
       setAnalysisOpen(true);
     } catch (analysisError) {
-      console.error('Failed to analyze session:', analysisError);
-      setError('Analysis failed. Check model/API configuration and retry.');
+      console.error("Failed to analyze session:", analysisError);
+      setError("Analysis failed. Check model/API configuration and retry.");
     } finally {
       setIsAnalyzing(false);
     }
@@ -107,7 +127,9 @@ const WritePage = () => {
   const handleFinishSession = async () => {
     if (!hasText || isFinishing) return;
     if (!sessionSnapshot.sessionId) {
-      setError('Trusted telemetry session is still initializing. Please wait a moment and retry.');
+      setError(
+        "Trusted telemetry session is still initializing. Please wait a moment and retry.",
+      );
       return;
     }
 
@@ -121,7 +143,7 @@ const WritePage = () => {
 
     try {
       const { id } = await createCertificate({
-        title: 'Mindprint Human Origin Certificate',
+        title: "Mindprint Human Origin Certificate",
         subtitle: subtitleFromStatus(sessionSnapshot.validationStatus),
         text: certificateText,
         score,
@@ -136,8 +158,10 @@ const WritePage = () => {
 
       router.push(`/verify/${encodeURIComponent(id)}`);
     } catch (error) {
-      console.error('Failed to create certificate record:', error);
-      setError('Could not issue a trusted certificate. Please retry once telemetry/database are available.');
+      console.error("Failed to create certificate record:", error);
+      setError(
+        "Could not issue a trusted certificate. Please retry once telemetry/database are available.",
+      );
     } finally {
       setIsFinishing(false);
     }
@@ -168,14 +192,14 @@ const WritePage = () => {
               disabled={!hasText || isAnalyzing}
               className="rounded-full border border-slate-300/70 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-55 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200"
             >
-              {isAnalyzing ? 'Analyzing...' : 'Analyze Session'}
+              {isAnalyzing ? "Analyzing..." : "Analyze Session"}
             </button>
             <button
               onClick={handleFinishSession}
               disabled={!hasText || isFinishing}
               className="rounded-full border border-sky-300/50 bg-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-[0_8px_22px_rgba(14,165,233,0.35)] transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-55"
             >
-              {isFinishing ? 'Finishing...' : 'Finish Session'}
+              {isFinishing ? "Finishing..." : "Finish Session"}
             </button>
             <AnimatedThemeToggler />
           </div>
@@ -187,16 +211,23 @@ const WritePage = () => {
               Create your proof of human writing
             </h1>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-              Write naturally. We capture process signals and issue a certificate when you finish.
+              Write naturally. We capture process signals and issue a
+              certificate when you finish.
             </p>
             {error && (
-              <p className="mt-2 text-sm text-rose-600 dark:text-rose-300">{error}</p>
+              <p className="mt-2 text-sm text-rose-600 dark:text-rose-300">
+                {error}
+              </p>
             )}
           </div>
           <Editor onSessionChange={setSessionSnapshot} />
         </section>
       </main>
-      <AnalysisResult isOpen={analysisOpen} onClose={() => setAnalysisOpen(false)} analysis={analysisText} />
+      <AnalysisResult
+        isOpen={analysisOpen}
+        onClose={() => setAnalysisOpen(false)}
+        analysis={analysisText}
+      />
     </div>
   );
 };

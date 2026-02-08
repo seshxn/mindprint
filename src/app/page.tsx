@@ -1,38 +1,53 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { ArrowRight, CheckCircle2, Fingerprint, Radar, ShieldCheck, Sparkles, Waves } from 'lucide-react';
-import { AnimatedGridPattern } from '@/components/magicui/animated-grid-pattern';
-import { MagicCard } from '@/components/magicui/magic-card';
-import { ShimmerButton } from '@/components/magicui/shimmer-button';
-import { AnimatedThemeToggler } from '@/components/magicui/animated-theme-toggler';
+import Link from "next/link";
+import { motion } from "framer-motion";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Fingerprint,
+  Radar,
+  ShieldCheck,
+  Sparkles,
+  Waves,
+} from "lucide-react";
+import { AnimatedGridPattern } from "@/components/magicui/animated-grid-pattern";
+import { MagicCard } from "@/components/magicui/magic-card";
+import { ShimmerButton } from "@/components/magicui/shimmer-button";
+import { AnimatedThemeToggler } from "@/components/magicui/animated-theme-toggler";
 
 const features = [
   {
     icon: Fingerprint,
-    title: 'Behavioral Signature',
-    copy: 'Track human writing cadence, edits, pauses, and revision flow with privacy-first telemetry.',
+    title: "Behavioral Signature",
+    copy: "Track human writing cadence, edits, pauses, and revision flow with privacy-first telemetry.",
   },
   {
     icon: ShieldCheck,
-    title: 'Verifiable Certificates',
-    copy: 'Generate short-ID certificates that can be verified independently with shareable links.',
+    title: "Verifiable Certificates",
+    copy: "Generate short-ID certificates that can be verified independently with shareable links.",
   },
   {
     icon: Radar,
-    title: 'Ghost Replay',
-    copy: 'Replay text creation character-by-character to show the process, not just the final output.',
+    title: "Ghost Replay",
+    copy: "Replay text creation character-by-character to show the process, not just the final output.",
   },
 ];
 
 const signals = [
-  { label: 'Score', value: '93' },
-  { label: 'Events', value: '1.2k' },
-  { label: 'Status', value: 'Verified' },
+  { label: "Score", value: "93" },
+  { label: "Events", value: "1.2k" },
+  { label: "Status", value: "Verified" },
 ];
 
-const integrations = ['Writers', 'Agencies', 'EdTech', 'Hiring Ops', 'Compliance', 'Trust & Safety'];
+const integrations = [
+  "Writers",
+  "Agencies",
+  "EdTech",
+  "Hiring Ops",
+  "Compliance",
+  "Trust & Safety",
+];
 
 export default function Home() {
   return (
@@ -54,7 +69,9 @@ export default function Home() {
               Verify
             </Link>
             <Link href="/write">
-              <ShimmerButton className="px-4 py-2 text-xs uppercase tracking-[0.2em]">Start Writing</ShimmerButton>
+              <ShimmerButton className="px-4 py-2 text-xs uppercase tracking-[0.2em]">
+                Start Writing
+              </ShimmerButton>
             </Link>
             <AnimatedThemeToggler />
           </div>
@@ -71,8 +88,9 @@ export default function Home() {
               Verify how content was created
             </h1>
             <p className="max-w-xl text-lg leading-relaxed text-slate-600 dark:text-slate-300">
-              Mindprint captures how writing was created, generates a certificate, and lets anyone verify authorship
-              confidence from process evidence.
+              Mindprint captures how writing was created, generates a
+              certificate, and lets anyone verify authorship confidence from
+              process evidence.
             </p>
             <div className="flex flex-wrap gap-3">
               <Link href="/write">
@@ -89,8 +107,15 @@ export default function Home() {
               </Link>
             </div>
             <div className="flex flex-wrap gap-3 pt-1 text-sm text-slate-600 dark:text-slate-300">
-              {['No prompt logs required', 'Process-based scoring', 'Shareable verification links'].map((item) => (
-                <div key={item} className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 shadow-sm dark:bg-slate-900 dark:shadow-none">
+              {[
+                "No prompt logs required",
+                "Process-based scoring",
+                "Shareable verification links",
+              ].map((item) => (
+                <div
+                  key={item}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 shadow-sm dark:bg-slate-900 dark:shadow-none"
+                >
                   <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
                   {item}
                 </div>
@@ -99,7 +124,9 @@ export default function Home() {
           </motion.div>
 
           <MagicCard className="p-6">
-            <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">Realtime Signal</div>
+            <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-sky-700 dark:text-sky-300">
+              Realtime Signal
+            </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950/80">
               <div className="flex h-28 items-end gap-2">
                 {[26, 48, 43, 63, 70, 37, 56, 24].map((height, index) => (
@@ -116,9 +143,16 @@ export default function Home() {
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2 text-center">
               {signals.map((signal) => (
-                <div key={signal.label} className="rounded-xl border border-slate-200 bg-white px-2 py-3 dark:border-slate-700 dark:bg-slate-900">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">{signal.label}</div>
-                  <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">{signal.value}</div>
+                <div
+                  key={signal.label}
+                  className="rounded-xl border border-slate-200 bg-white px-2 py-3 dark:border-slate-700 dark:bg-slate-900"
+                >
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+                    {signal.label}
+                  </div>
+                  <div className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    {signal.value}
+                  </div>
                 </div>
               ))}
             </div>
@@ -138,8 +172,12 @@ export default function Home() {
                 <div className="mb-3 inline-flex rounded-xl border border-sky-200 bg-sky-50 p-2 dark:border-sky-700/60 dark:bg-sky-900/30">
                   <Icon className="h-5 w-5 text-sky-600 dark:text-sky-300" />
                 </div>
-                <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">{title}</h2>
-                <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{copy}</p>
+                <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+                  {title}
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+                  {copy}
+                </p>
               </MagicCard>
             </motion.div>
           ))}
@@ -151,7 +189,9 @@ export default function Home() {
               <Waves className="h-4 w-4 text-sky-500 dark:text-sky-300" />
               Where Mindprint Fits
             </div>
-            <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">Built for teams shipping trusted content at scale</h3>
+            <h3 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              Built for teams shipping trusted content at scale
+            </h3>
             <div className="mt-4 flex flex-wrap gap-2">
               {integrations.map((item) => (
                 <span
@@ -164,14 +204,21 @@ export default function Home() {
             </div>
           </MagicCard>
           <MagicCard className="p-6">
-            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">Next Step</div>
-            <h3 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">Generate your first certificate in under a minute</h3>
+            <div className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
+              Next Step
+            </div>
+            <h3 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">
+              Generate your first certificate in under a minute
+            </h3>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-              Start a writing session, click finish, and share your short verification link instantly.
+              Start a writing session, click finish, and share your short
+              verification link instantly.
             </p>
             <div className="mt-5">
               <Link href="/write">
-                <ShimmerButton className="w-full justify-center">Launch Mindprint Writer</ShimmerButton>
+                <ShimmerButton className="w-full justify-center">
+                  Launch Mindprint Writer
+                </ShimmerButton>
               </Link>
             </div>
           </MagicCard>

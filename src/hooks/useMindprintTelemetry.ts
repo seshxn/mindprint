@@ -1,7 +1,11 @@
-import { useState, useRef, useCallback, useEffect } from 'react';
-import { KeystrokeAction, TelemetryEvent } from '@/types/telemetry';
-import { validateSession, ValidationResult, TelemetryTracker } from '@/lib/telemetry';
-import { ingestTelemetry, initTelemetrySession } from '@/app/actions/telemetry';
+import { useState, useRef, useCallback, useEffect } from "react";
+import { KeystrokeAction, TelemetryEvent } from "@/types/telemetry";
+import {
+  validateSession,
+  ValidationResult,
+  TelemetryTracker,
+} from "@/lib/telemetry";
+import { ingestTelemetry, initTelemetrySession } from "@/app/actions/telemetry";
 
 interface UseMindprintTelemetryOptions {
   batchInterval?: number;
@@ -19,13 +23,21 @@ const diffText = (previousText: string, nextText: string) => {
   const previousLength = previousText.length;
   const nextLength = nextText.length;
 
-  while (start < previousLength && start < nextLength && previousText[start] === nextText[start]) {
+  while (
+    start < previousLength &&
+    start < nextLength &&
+    previousText[start] === nextText[start]
+  ) {
     start += 1;
   }
 
   let previousEnd = previousLength - 1;
   let nextEnd = nextLength - 1;
-  while (previousEnd >= start && nextEnd >= start && previousText[previousEnd] === nextText[nextEnd]) {
+  while (
+    previousEnd >= start &&
+    nextEnd >= start &&
+    previousText[previousEnd] === nextText[nextEnd]
+  ) {
     previousEnd -= 1;
     nextEnd -= 1;
   }
@@ -34,33 +46,55 @@ const diffText = (previousText: string, nextText: string) => {
   const inserted = nextText.slice(start, nextEnd + 1);
 
   if (removed.length === 0 && inserted.length > 0) {
-    return { op: 'insert' as const, from: start, to: start, text: inserted };
+    return { op: "insert" as const, from: start, to: start, text: inserted };
   }
   if (removed.length > 0 && inserted.length === 0) {
-    return { op: 'delete' as const, from: start, to: start + removed.length, text: '' };
+    return {
+      op: "delete" as const,
+      from: start,
+      to: start + removed.length,
+      text: "",
+    };
   }
-  return { op: 'replace' as const, from: start, to: start + removed.length, text: inserted };
+  return {
+    op: "replace" as const,
+    from: start,
+    to: start + removed.length,
+    text: inserted,
+  };
 };
 
-export const useMindprintTelemetry = ({ batchInterval = 5000, enabled = true }: UseMindprintTelemetryOptions = {}) => {
+export const useMindprintTelemetry = ({
+  batchInterval = 5000,
+  enabled = true,
+}: UseMindprintTelemetryOptions = {}) => {
   const trackerRef = useRef<TelemetryTracker>(new TelemetryTracker());
-  const uiEventsRef = useRef<(TelemetryEvent | null)[]>(new Array(MAX_UI_EVENTS).fill(null));
+  const uiEventsRef = useRef<(TelemetryEvent | null)[]>(
+    new Array(MAX_UI_EVENTS).fill(null),
+  );
   const uiEventsHeadRef = useRef<number>(0);
   const uiEventsTotalRef = useRef<number>(0);
   const lastValidationTimeRef = useRef<number>(0);
-  const lastTextRef = useRef<string>('');
+  const lastTextRef = useRef<string>("");
   const batchSequenceRef = useRef<number>(0);
   const initInFlightRef = useRef<boolean>(false);
-  const sessionRef = useRef<{ sessionId: string; sessionToken: string } | null>(null);
+  const sessionRef = useRef<{ sessionId: string; sessionToken: string } | null>(
+    null,
+  );
 
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [validationResult, setValidationResult] = useState<ValidationResult>({ status: 'INSUFFICIENT_DATA' });
+  const [validationResult, setValidationResult] = useState<ValidationResult>({
+    status: "INSUFFICIENT_DATA",
+  });
   const [isWarming, setIsWarming] = useState(false);
 
   const addToUiBuffer = useCallback((event: TelemetryEvent) => {
     uiEventsRef.current[uiEventsHeadRef.current] = event;
     uiEventsHeadRef.current = (uiEventsHeadRef.current + 1) % MAX_UI_EVENTS;
-    uiEventsTotalRef.current = Math.min(uiEventsTotalRef.current + 1, MAX_UI_EVENTS);
+    uiEventsTotalRef.current = Math.min(
+      uiEventsTotalRef.current + 1,
+      MAX_UI_EVENTS,
+    );
   }, []);
 
   const getUiEventsInternal = useCallback(() => {
@@ -98,7 +132,10 @@ export const useMindprintTelemetry = ({ batchInterval = 5000, enabled = true }: 
         };
         setSessionId(initialized.sessionId);
       } catch (error) {
-        console.error('[Mindprint Telemetry] Failed to initialize session.', error);
+        console.error(
+          "[Mindprint Telemetry] Failed to initialize session.",
+          error,
+        );
       } finally {
         initInFlightRef.current = false;
       }
@@ -128,7 +165,7 @@ export const useMindprintTelemetry = ({ batchInterval = 5000, enabled = true }: 
         batchSequenceRef.current = nextSequence;
         trackerRef.current.clear();
       } catch (error) {
-        console.error('[Mindprint Telemetry] Failed to flush events.', error);
+        console.error("[Mindprint Telemetry] Failed to flush events.", error);
       }
     };
 
@@ -143,45 +180,50 @@ export const useMindprintTelemetry = ({ batchInterval = 5000, enabled = true }: 
     (event: KeyboardEvent) => {
       if (!enabled) return;
 
-      let action: KeystrokeAction = 'other';
-      if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        action = 'char';
-      } else if (event.key === 'Backspace' || event.key === 'Delete') {
-        action = 'delete';
-      } else if (
-        event.key.startsWith('Arrow') ||
-        event.key === 'Home' ||
-        event.key === 'End' ||
-        event.key === 'PageUp' ||
-        event.key === 'PageDown'
+      let action: KeystrokeAction = "other";
+      if (
+        event.key.length === 1 &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey
       ) {
-        action = 'nav';
+        action = "char";
+      } else if (event.key === "Backspace" || event.key === "Delete") {
+        action = "delete";
+      } else if (
+        event.key.startsWith("Arrow") ||
+        event.key === "Home" ||
+        event.key === "End" ||
+        event.key === "PageUp" ||
+        event.key === "PageDown"
+      ) {
+        action = "nav";
       }
 
       trackerRef.current.recordKeystroke(action, event.key);
       addToUiBuffer({
-        type: 'keystroke',
+        type: "keystroke",
         timestamp: performance.now(),
         action,
         key: event.key,
       });
     },
-    [addToUiBuffer, enabled]
+    [addToUiBuffer, enabled],
   );
 
   const trackPaste = useCallback(
     (event: ClipboardEvent) => {
       if (!enabled) return;
-      const text = event.clipboardData?.getData('text') || '';
-      trackerRef.current.recordPaste(text.length, 'clipboard');
+      const text = event.clipboardData?.getData("text") || "";
+      trackerRef.current.recordPaste(text.length, "clipboard");
       addToUiBuffer({
-        type: 'paste',
+        type: "paste",
         timestamp: performance.now(),
         length: text.length,
-        source: 'clipboard',
+        source: "clipboard",
       });
     },
-    [addToUiBuffer, enabled]
+    [addToUiBuffer, enabled],
   );
 
   const trackContentMutation = useCallback(
@@ -190,9 +232,14 @@ export const useMindprintTelemetry = ({ batchInterval = 5000, enabled = true }: 
       const diff = diffText(lastTextRef.current, nextText);
       lastTextRef.current = nextText;
       if (!diff) return;
-      trackerRef.current.recordOperation(diff.op, diff.from, diff.to, diff.text);
+      trackerRef.current.recordOperation(
+        diff.op,
+        diff.from,
+        diff.to,
+        diff.text,
+      );
       addToUiBuffer({
-        type: 'operation',
+        type: "operation",
         timestamp: performance.now(),
         op: diff.op,
         from: diff.from,
@@ -200,7 +247,7 @@ export const useMindprintTelemetry = ({ batchInterval = 5000, enabled = true }: 
         text: diff.text,
       });
     },
-    [addToUiBuffer, enabled]
+    [addToUiBuffer, enabled],
   );
 
   const updateValidation = useCallback(
@@ -211,15 +258,20 @@ export const useMindprintTelemetry = ({ batchInterval = 5000, enabled = true }: 
       lastValidationTimeRef.current = now;
 
       const uiEvents = getUiEventsInternal();
-      const typedCount = uiEvents.filter((event) => event.type === 'keystroke' && event.action === 'char').length;
+      const typedCount = uiEvents.filter(
+        (event) => event.type === "keystroke" && event.action === "char",
+      ).length;
       setIsWarming(typedCount > 0 && typedCount < MIN_TYPED_EVENTS_FOR_WARMING);
       const result = validateSession(uiEvents, currentContentLength);
       setValidationResult(result);
     },
-    [enabled, getUiEventsInternal]
+    [enabled, getUiEventsInternal],
   );
 
-  const getUiEvents = useCallback(() => getUiEventsInternal(), [getUiEventsInternal]);
+  const getUiEvents = useCallback(
+    () => getUiEventsInternal(),
+    [getUiEventsInternal],
+  );
 
   return {
     trackKeystroke,

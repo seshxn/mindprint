@@ -1,7 +1,7 @@
-import React from 'react';
-import { Editor } from '@tiptap/react';
-import { Bold, Italic, type LucideIcon } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import React from "react";
+import { Editor } from "@tiptap/react";
+import { Bold, Italic, type LucideIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ToolbarProps {
   editor: Editor | null;
@@ -23,16 +23,16 @@ export const Toolbar = ({ editor }: ToolbarProps) => {
   const items: ToolbarItem[] = [
     {
       icon: Bold,
-      label: 'Toggle Bold',
+      label: "Toggle Bold",
       action: () => editor.chain().focus().toggleBold().run(),
-      isActive: () => editor.isActive('bold'),
+      isActive: () => editor.isActive("bold"),
       canExecute: () => editor.can().chain().focus().toggleBold().run(),
     },
     {
       icon: Italic,
-      label: 'Toggle Italic',
+      label: "Toggle Italic",
       action: () => editor.chain().focus().toggleItalic().run(),
-      isActive: () => editor.isActive('italic'),
+      isActive: () => editor.isActive("italic"),
       canExecute: () => editor.can().chain().focus().toggleItalic().run(),
     },
   ];
@@ -48,7 +48,9 @@ export const Toolbar = ({ editor }: ToolbarProps) => {
             disabled={!item.canExecute()}
             className={cn(
               "p-2 rounded hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors",
-              item.isActive() ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100" : "text-slate-500 dark:text-slate-400"
+              item.isActive()
+                ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
+                : "text-slate-500 dark:text-slate-400",
             )}
             aria-label={item.label}
           >
@@ -58,4 +60,4 @@ export const Toolbar = ({ editor }: ToolbarProps) => {
       })}
     </div>
   );
-}
+};

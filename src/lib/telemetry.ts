@@ -1,4 +1,8 @@
-import { TelemetryEvent, KeystrokeAction, TextOperationType } from '@/types/telemetry';
+import {
+  TelemetryEvent,
+  KeystrokeAction,
+  TextOperationType,
+} from "@/types/telemetry";
 
 export type { TelemetryEvent, KeystrokeAction, TextOperationType };
 
@@ -6,7 +10,11 @@ export interface SessionTelemetry {
   events: TelemetryEvent[];
 }
 
-export type ValidationStatus = 'VERIFIED_HUMAN' | 'SUSPICIOUS' | 'LOW_EFFORT' | 'INSUFFICIENT_DATA';
+export type ValidationStatus =
+  | "VERIFIED_HUMAN"
+  | "SUSPICIOUS"
+  | "LOW_EFFORT"
+  | "INSUFFICIENT_DATA";
 
 export type ValidationResult = {
   status: ValidationStatus;
@@ -30,20 +38,28 @@ const LOW_VARIANCE_SD_MS = 12;
 const MAX_EVENTS_HISTORY = 12000;
 const EVENTS_TRIM_TARGET = 10000;
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
 
-const mean = (values: number[]) => values.reduce((sum, value) => sum + value, 0) / values.length;
+const mean = (values: number[]) =>
+  values.reduce((sum, value) => sum + value, 0) / values.length;
 
 const sampleStdDev = (values: number[]) => {
   if (values.length < 2) return 0;
   const avg = mean(values);
-  const variance = values.reduce((sum, value) => sum + Math.pow(value - avg, 2), 0) / (values.length - 1);
+  const variance =
+    values.reduce((sum, value) => sum + Math.pow(value - avg, 2), 0) /
+    (values.length - 1);
   return Math.sqrt(variance);
 };
 
 const percentile = (sortedValues: number[], p: number) => {
   if (sortedValues.length === 0) return 0;
-  const index = clamp((sortedValues.length - 1) * p, 0, sortedValues.length - 1);
+  const index = clamp(
+    (sortedValues.length - 1) * p,
+    0,
+    sortedValues.length - 1,
+  );
   const low = Math.floor(index);
   const high = Math.ceil(index);
   if (low === high) return sortedValues[low];
@@ -56,7 +72,7 @@ export class TelemetryTracker {
 
   public recordKeystroke(action: KeystrokeAction, key: string) {
     this.events.push({
-      type: 'keystroke',
+      type: "keystroke",
       timestamp: performance.now(),
       action,
       key,
@@ -64,9 +80,9 @@ export class TelemetryTracker {
     this.enforceLimit();
   }
 
-  public recordPaste(length: number, source: string = 'clipboard') {
+  public recordPaste(length: number, source: string = "clipboard") {
     this.events.push({
-      type: 'paste',
+      type: "paste",
       timestamp: performance.now(),
       length,
       source,
@@ -74,9 +90,14 @@ export class TelemetryTracker {
     this.enforceLimit();
   }
 
-  public recordOperation(op: TextOperationType, from: number, to: number, text: string) {
+  public recordOperation(
+    op: TextOperationType,
+    from: number,
+    to: number,
+    text: string,
+  ) {
     this.events.push({
-      type: 'operation',
+      type: "operation",
       timestamp: performance.now(),
       op,
       from,
@@ -107,11 +128,14 @@ const deriveConfidence = (typedChars: number, typingIntervals: number[]) => {
   return Number((typedComponent * 0.6 + intervalComponent * 0.4).toFixed(2));
 };
 
-export const validateSession = (events: TelemetryEvent[], currentContentLength: number): ValidationResult => {
+export const validateSession = (
+  events: TelemetryEvent[],
+  currentContentLength: number,
+): ValidationResult => {
   if (events.length === 0) {
     return {
-      status: 'INSUFFICIENT_DATA',
-      reason: 'No telemetry recorded for session.',
+      status: "INSUFFICIENT_DATA",
+      reason: "No telemetry recorded for session.",
       metrics: {
         pasteRatio: 0,
         netContentLength: currentContentLength,
@@ -123,22 +147,27 @@ export const validateSession = (events: TelemetryEvent[], currentContentLength: 
     };
   }
 
-  const pasteEvents = events.filter((event) => event.type === 'paste') as Extract<TelemetryEvent, { type: 'paste' }>[];
+  const pasteEvents = events.filter(
+    (event) => event.type === "paste",
+  ) as Extract<TelemetryEvent, { type: "paste" }>[];
   const pastedChars = pasteEvents.reduce((acc, event) => acc + event.length, 0);
 
-  const keystrokeEvents = events.filter((event) => event.type === 'keystroke') as Extract<
-    TelemetryEvent,
-    { type: 'keystroke' }
-  >[];
-  const typedCharEvents = keystrokeEvents.filter((event) => event.action === 'char');
+  const keystrokeEvents = events.filter(
+    (event) => event.type === "keystroke",
+  ) as Extract<TelemetryEvent, { type: "keystroke" }>[];
+  const typedCharEvents = keystrokeEvents.filter(
+    (event) => event.action === "char",
+  );
   const typedChars = typedCharEvents.length;
-  const deleteCount = keystrokeEvents.filter((event) => event.action === 'delete').length;
+  const deleteCount = keystrokeEvents.filter(
+    (event) => event.action === "delete",
+  ).length;
   const totalProduced = pastedChars + typedChars;
 
   if (totalProduced === 0) {
     return {
-      status: 'INSUFFICIENT_DATA',
-      reason: 'No content production actions recorded.',
+      status: "INSUFFICIENT_DATA",
+      reason: "No content production actions recorded.",
       metrics: {
         pasteRatio: 0,
         netContentLength: currentContentLength,
@@ -155,17 +184,22 @@ export const validateSession = (events: TelemetryEvent[], currentContentLength: 
 
   const typingIntervals: number[] = [];
   for (let i = 1; i < keystrokeEvents.length; i += 1) {
-    const diff = keystrokeEvents[i].timestamp - keystrokeEvents[i - 1].timestamp;
+    const diff =
+      keystrokeEvents[i].timestamp - keystrokeEvents[i - 1].timestamp;
     if (Number.isFinite(diff) && diff > 0 && diff <= MAX_VALID_INTERVAL_MS) {
       typingIntervals.push(diff);
     }
   }
 
   const confidence = deriveConfidence(typedChars, typingIntervals);
-  if (typedChars < MIN_TYPED_EVENTS_FOR_ANALYSIS || typingIntervals.length < MIN_TYPING_INTERVALS || confidence < 0.25) {
+  if (
+    typedChars < MIN_TYPED_EVENTS_FOR_ANALYSIS ||
+    typingIntervals.length < MIN_TYPING_INTERVALS ||
+    confidence < 0.25
+  ) {
     return {
-      status: 'INSUFFICIENT_DATA',
-      reason: 'Collecting more behavioral data.',
+      status: "INSUFFICIENT_DATA",
+      reason: "Collecting more behavioral data.",
       metrics: {
         pasteRatio,
         netContentLength: currentContentLength,
@@ -184,9 +218,14 @@ export const validateSession = (events: TelemetryEvent[], currentContentLength: 
   const p50 = percentile(sortedIntervals, 0.5);
   const p95 = percentile(sortedIntervals, 0.95);
   const burstiness = p50 > 0 ? p95 / p50 : 1;
-  const pauses = typingIntervals.filter((value) => value >= LONG_PAUSE_MS).length;
+  const pauses = typingIntervals.filter(
+    (value) => value >= LONG_PAUSE_MS,
+  ).length;
   const durationMs =
-    keystrokeEvents.length > 1 ? keystrokeEvents[keystrokeEvents.length - 1].timestamp - keystrokeEvents[0].timestamp : 0;
+    keystrokeEvents.length > 1
+      ? keystrokeEvents[keystrokeEvents.length - 1].timestamp -
+        keystrokeEvents[0].timestamp
+      : 0;
   const durationMinutes = durationMs > 0 ? durationMs / 60000 : 1;
   const pauseRatePerMin = pauses / durationMinutes;
 
@@ -197,14 +236,18 @@ export const validateSession = (events: TelemetryEvent[], currentContentLength: 
   const lowRevisionRisk = clamp((0.015 - correctionRatio) / 0.015, 0, 1);
 
   const baseRisk =
-    pasteRisk * 0.4 + regularityRisk * 0.24 + varianceRisk * 0.18 + burstRisk * 0.1 + lowRevisionRisk * 0.08;
+    pasteRisk * 0.4 +
+    regularityRisk * 0.24 +
+    varianceRisk * 0.18 +
+    burstRisk * 0.1 +
+    lowRevisionRisk * 0.08;
   const uncertaintyPenalty = (1 - confidence) * 0.18;
   const risk = clamp(baseRisk + uncertaintyPenalty, 0, 1);
   const riskScore = Math.round(risk * 100);
 
   if (pasteRatio >= 0.85 && typedChars < 24) {
     return {
-      status: 'LOW_EFFORT',
+      status: "LOW_EFFORT",
       reason: `High external text injection (${(pasteRatio * 100).toFixed(1)}% pasted).`,
       metrics: {
         pasteRatio,
@@ -220,7 +263,7 @@ export const validateSession = (events: TelemetryEvent[], currentContentLength: 
 
   if (risk >= 0.64) {
     return {
-      status: 'SUSPICIOUS',
+      status: "SUSPICIOUS",
       reason: `Anomalous rhythm profile (risk ${riskScore}/100).`,
       metrics: {
         pasteRatio,
@@ -235,7 +278,7 @@ export const validateSession = (events: TelemetryEvent[], currentContentLength: 
   }
 
   return {
-    status: 'VERIFIED_HUMAN',
+    status: "VERIFIED_HUMAN",
     reason: `Human-like rhythm profile (confidence ${Math.round(confidence * 100)}%).`,
     metrics: {
       pasteRatio,

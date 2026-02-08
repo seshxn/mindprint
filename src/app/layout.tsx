@@ -17,7 +17,8 @@ export const metadata: Metadata = {
     default: "Mindprint",
     template: "%s | Mindprint",
   },
-  description: "Human-origin verification for written content with replayable process evidence.",
+  description:
+    "Human-origin verification for written content with replayable process evidence.",
 };
 
 const themeInitScript = `
